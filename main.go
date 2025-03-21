@@ -21,10 +21,16 @@ func main() {
 	orchestrator := agentic.NewAgent("orchestrator",
 		"Your job is to decide which agent to use based on the task.",
 		agentic.WithBranchs([]string{"english_agent", "spanish_agent"}))
+	// agentic.WithConditional(func(state *agentic.State) string {
+	// 	if strings.Contains(state.Messages[0], "Hola") {
+	// 		return "spanish_agent"
+	// 	}
+	// 	return "english_agent"
+	// }))
 
 	graph := agentic.Graph{
 		State: agentic.State{
-			Messages: []string{"Hola mundo"},
+			Messages: []string{"hello world"},
 		},
 	}
 	graph.AddAgent(agent1)

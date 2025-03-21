@@ -13,6 +13,7 @@ type Agent struct {
 	Model            string
 	Instructions     string
 	Branchs          []string
+	Conditional      func(state *State) string
 	Tools            []string
 	OutputGuardrails []string
 	OutputType       string
@@ -84,9 +85,21 @@ func WithModel(model string) AgentOption {
 	}
 }
 
+func WithConditional(conditional func(state *State) string) AgentOption {
+	return func(a *Agent) {
+		a.Conditional = conditional
+	}
+}
+
 func (a *Agent) Run(ctx context.Context, state *State) AgentResponse {
 	nextAgent := ""
 	fmt.Println("Running agent", a.Name)
+
+	if a.Conditional != nil {
+		return AgentResponse{
+			NextAgent: a.Conditional(state),
+		}
+	}
 
 	response, err := a.Client.provider.Execute(
 		ctx,
