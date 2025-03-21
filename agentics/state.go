@@ -1,5 +1,5 @@
 package agentic
 
 type State struct {
-	Name string
+	Messages []string
 }

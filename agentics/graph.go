@@ -1,6 +1,9 @@
 package agentic
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 const (
 	Entrypoint = "START"
@@ -9,14 +12,14 @@ const (
 
 type Graph struct {
 	Entrypoint string
-	Agents     map[string]Agent
+	Agents     map[string]*Agent
 	Relations  [][]string
 	State      State
 }
 
-func (g *Graph) AddAgent(agent Agent) {
+func (g *Graph) AddAgent(agent *Agent) {
 	if g.Agents == nil {
-		g.Agents = make(map[string]Agent)
+		g.Agents = make(map[string]*Agent)
 	}
 	g.Agents[agent.Name] = agent
 }
@@ -32,34 +35,26 @@ func (g *Graph) SetEntrypoint(agent string) {
 	g.Entrypoint = agent
 }
 
-func (g *Graph) Run() {
+func (g *Graph) Run(ctx context.Context) {
 	currentAgent := g.Entrypoint
 	visited := make(map[string]bool)
 	queue := []string{currentAgent}
 
-	// Procesar la cola hasta que esté vacía
 	for len(queue) > 0 {
-		// Tomar el siguiente agente de la cola
 		currentAgent = queue[0]
 		queue = queue[1:]
 
-		// Si ya visitamos este agente, continuar
 		if visited[currentAgent] {
 			continue
 		}
 
-		// Marcar como visitado y ejecutar
 		visited[currentAgent] = true
 		agent := g.Agents[currentAgent]
-		response := agent.Run(&g.State)
+		response := agent.Run(ctx, &g.State)
 
-		// Si el agente especifica el siguiente agente, priorizarlo
 		if response.NextAgent != "" {
-			// Añadir el agente especificado al principio de la cola
 			queue = append([]string{response.NextAgent}, queue...)
 		} else {
-			// Si no hay un siguiente agente específico, seguir el flujo normal
-			// Agregar todos los agentes conectados a la cola
 			for _, relation := range g.Relations {
 				if relation[0] == currentAgent && !visited[relation[1]] {
 					queue = append(queue, relation[1])
