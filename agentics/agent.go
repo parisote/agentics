@@ -2,6 +2,7 @@ package agentic
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -17,6 +18,9 @@ type Agent struct {
 	OutputType       string
 }
 
+type NextAgent struct {
+	Next string `json:"next"`
+}
 type AgentOption func(*Agent)
 
 type AgentResponse struct {
@@ -30,7 +34,7 @@ func NewAgent(name string, instructions string, options ...AgentOption) *Agent {
 		Name:         name,
 		Instructions: instructions,
 		Client:       NewModelClient(OpenAI),
-		Model:        "gpt-4o",
+		Model:        "gpt-4o-mini",
 	}
 
 	for _, option := range options {
@@ -48,6 +52,10 @@ func WithClient(client ModelClient) AgentOption {
 
 func WithBranchs(branchs []string) AgentOption {
 	return func(a *Agent) {
+		for _, branch := range branchs {
+			a.Instructions = a.Instructions +
+				"Response with {\"next\": \"" + branch + "\"} and appropiate agent."
+		}
 		a.Branchs = branchs
 	}
 }
@@ -94,10 +102,17 @@ func (a *Agent) Run(ctx context.Context, state *State) AgentResponse {
 	}
 
 	ressult := response.GetContent()
-	if strings.Contains(ressult, "agent1") {
-		nextAgent = "agent1"
-	} else if strings.Contains(ressult, "agent2") {
-		nextAgent = "agent2"
+	if strings.Contains(ressult, "next") {
+		var nextAgentStruct NextAgent
+		if err := json.Unmarshal([]byte(ressult), &nextAgentStruct); err != nil {
+			fmt.Println("Error unmarshalling next agent:", err)
+			return AgentResponse{
+				Content:   "",
+				Error:     err,
+				NextAgent: "",
+			}
+		}
+		nextAgent = nextAgentStruct.Next
 	}
 
 	state.Messages = append(state.Messages, response.GetContent())

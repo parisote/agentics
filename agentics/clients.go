@@ -3,7 +3,6 @@ package agentic
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -40,10 +39,9 @@ type OpenAIProvider struct {
 }
 
 func NewOpenAIProvider() *OpenAIProvider {
-	key := os.Getenv("OPENAI_API_KEY")
 	return &OpenAIProvider{
 		Client: openai.NewClient(
-			openai_option.WithAPIKey(key),
+			openai_option.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
 		),
 	}
 }
@@ -57,7 +55,6 @@ func (p *OpenAIProvider) Execute(ctx context.Context, prompt string, messages []
 		Model: openai.ChatModelGPT4o,
 	})
 	if err != nil {
-		fmt.Println("Error executing openai model", err)
 		return nil, errors.New("error executing openai model")
 	}
 
