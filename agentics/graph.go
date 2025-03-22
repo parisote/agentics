@@ -2,7 +2,6 @@ package agentics
 
 import (
 	"context"
-	"fmt"
 )
 
 const (
@@ -15,6 +14,10 @@ type Graph struct {
 	Agents     map[string]AgentInterface
 	Relations  [][]string
 	State      State
+}
+
+type GraphResponse struct {
+	State State
 }
 
 func (g *Graph) AddAgent(agent *Agent) {
@@ -35,7 +38,7 @@ func (g *Graph) SetEntrypoint(agent string) {
 	g.Entrypoint = agent
 }
 
-func (g *Graph) Run(ctx context.Context, state State) {
+func (g *Graph) Run(ctx context.Context, state State) *GraphResponse {
 	if g.State == nil {
 		g.State = state
 	}
@@ -69,6 +72,7 @@ func (g *Graph) Run(ctx context.Context, state State) {
 		g.State.AddMessages([]string{response.Content})
 	}
 
-	fmt.Printf("State: %+v\n", g.State)
-	fmt.Println("Graph finished")
+	return &GraphResponse{
+		State: g.State,
+	}
 }

@@ -111,7 +111,6 @@ func WithPostStateFunction(stateFunction func(state State) error) AgentOption {
 
 func (a *Agent) Run(ctx context.Context, state State) AgentResponse {
 	nextAgent := ""
-	fmt.Println("Running agent", a.Name)
 
 	if a.Conditional != nil {
 		return AgentResponse{
