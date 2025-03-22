@@ -1,4 +1,4 @@
-package agentic
+package agentics
 
 import (
 	"context"
@@ -7,16 +7,22 @@ import (
 	"strings"
 )
 
+type AgentInterface interface {
+	Run(ctx context.Context, state State) AgentResponse
+}
+
 type Agent struct {
-	Name             string
-	Client           *ModelClient
-	Model            string
-	Instructions     string
-	Branchs          []string
-	Conditional      func(state *State) string
-	Tools            []string
-	OutputGuardrails []string
-	OutputType       string
+	Name              string
+	Client            *ModelClient
+	Model             string
+	Instructions      string
+	Branchs           []string
+	Conditional       func(state State) string
+	Tools             []Tool
+	OutputGuardrails  []string
+	OutputType        string
+	PreStateFunction  func(state State) error
+	PostStateFunction func(state State) error
 }
 
 type NextAgent struct {
@@ -61,7 +67,7 @@ func WithBranchs(branchs []string) AgentOption {
 	}
 }
 
-func WithTools(tools []string) AgentOption {
+func WithTools(tools []Tool) AgentOption {
 	return func(a *Agent) {
 		a.Tools = tools
 	}
@@ -85,13 +91,25 @@ func WithModel(model string) AgentOption {
 	}
 }
 
-func WithConditional(conditional func(state *State) string) AgentOption {
+func WithConditional(conditional func(state State) string) AgentOption {
 	return func(a *Agent) {
 		a.Conditional = conditional
 	}
 }
 
-func (a *Agent) Run(ctx context.Context, state *State) AgentResponse {
+func WithPreStateFunction(stateFunction func(state State) error) AgentOption {
+	return func(a *Agent) {
+		a.PreStateFunction = stateFunction
+	}
+}
+
+func WithPostStateFunction(stateFunction func(state State) error) AgentOption {
+	return func(a *Agent) {
+		a.PostStateFunction = stateFunction
+	}
+}
+
+func (a *Agent) Run(ctx context.Context, state State) AgentResponse {
 	nextAgent := ""
 	fmt.Println("Running agent", a.Name)
 
@@ -101,10 +119,14 @@ func (a *Agent) Run(ctx context.Context, state *State) AgentResponse {
 		}
 	}
 
+	if a.PreStateFunction != nil {
+		a.PreStateFunction(state)
+	}
+
 	response, err := a.Client.provider.Execute(
 		ctx,
 		a.Instructions,
-		state.Messages,
+		state.GetMessages(),
 	)
 	if err != nil {
 		return AgentResponse{
@@ -128,7 +150,11 @@ func (a *Agent) Run(ctx context.Context, state *State) AgentResponse {
 		nextAgent = nextAgentStruct.Next
 	}
 
-	state.Messages = append(state.Messages, response.GetContent())
+	state.AddMessages([]string{response.GetContent()})
+
+	if a.PostStateFunction != nil {
+		a.PostStateFunction(state)
+	}
 
 	return AgentResponse{
 		Content:   response.GetContent(),

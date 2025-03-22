@@ -1,4 +1,4 @@
-package agentic
+package agentics
 
 import (
 	"context"
@@ -12,14 +12,14 @@ const (
 
 type Graph struct {
 	Entrypoint string
-	Agents     map[string]*Agent
+	Agents     map[string]AgentInterface
 	Relations  [][]string
 	State      State
 }
 
 func (g *Graph) AddAgent(agent *Agent) {
 	if g.Agents == nil {
-		g.Agents = make(map[string]*Agent)
+		g.Agents = make(map[string]AgentInterface)
 	}
 	g.Agents[agent.Name] = agent
 }
@@ -50,7 +50,7 @@ func (g *Graph) Run(ctx context.Context) {
 
 		visited[currentAgent] = true
 		agent := g.Agents[currentAgent]
-		response := agent.Run(ctx, &g.State)
+		response := agent.Run(ctx, g.State)
 
 		if response.NextAgent != "" {
 			queue = append([]string{response.NextAgent}, queue...)

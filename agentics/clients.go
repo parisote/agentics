@@ -1,4 +1,4 @@
-package agentic
+package agentics
 
 import (
 	"context"
