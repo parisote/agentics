@@ -16,12 +16,11 @@ func main() {
 
 	agent := agentics.NewAgent("agent", "You are Tomas, a helpful assistant.")
 
-	graph := agentics.Graph{
-		State: &agentics.InputState{
-			Messages: []string{"Hello, how are you?"},
-		},
-	}
+	graph := agentics.Graph{}
+
 	graph.AddAgent(agent)
 	graph.SetEntrypoint(agent.Name)
-	graph.Run(context.Background())
+	graph.Run(context.Background(), &agentics.InputState{
+		Messages: []string{"Hello, how are you?"},
+	})
 }

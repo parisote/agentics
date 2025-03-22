@@ -35,7 +35,11 @@ func (g *Graph) SetEntrypoint(agent string) {
 	g.Entrypoint = agent
 }
 
-func (g *Graph) Run(ctx context.Context) {
+func (g *Graph) Run(ctx context.Context, state State) {
+	if g.State == nil {
+		g.State = state
+	}
+
 	currentAgent := g.Entrypoint
 	visited := make(map[string]bool)
 	queue := []string{currentAgent}
@@ -61,6 +65,8 @@ func (g *Graph) Run(ctx context.Context) {
 				}
 			}
 		}
+
+		g.State.AddMessages([]string{response.Content})
 	}
 
 	fmt.Printf("State: %+v\n", g.State)

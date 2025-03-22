@@ -22,16 +22,14 @@ func main() {
 		"Your job is to decide which agent to use based on the task.",
 		agentics.WithBranchs([]string{"english_agent", "spanish_agent"}))
 
-	graph := agentics.Graph{
-		State: &agentics.InputState{
-			Messages: []string{"hello world"},
-		},
-	}
+	graph := agentics.Graph{}
 	graph.AddAgent(agent1)
 	graph.AddAgent(agent2)
 	graph.AddAgent(orchestrator)
 	graph.SetEntrypoint(orchestrator.Name)
 	graph.AddRelation("orchestrator", "english_agent")
 	graph.AddRelation("orchestrator", "spanish_agent")
-	graph.Run(context.Background())
+	graph.Run(context.Background(), &agentics.InputState{
+		Messages: []string{"hello world"},
+	})
 }

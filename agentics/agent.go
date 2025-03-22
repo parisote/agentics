@@ -18,7 +18,7 @@ type Agent struct {
 	Instructions      string
 	Branchs           []string
 	Conditional       func(state State) string
-	Tools             []Tool
+	Tools             []ToolInterface
 	OutputGuardrails  []string
 	OutputType        string
 	PreStateFunction  func(state State) error
@@ -67,7 +67,7 @@ func WithBranchs(branchs []string) AgentOption {
 	}
 }
 
-func WithTools(tools []Tool) AgentOption {
+func WithTools(tools []ToolInterface) AgentOption {
 	return func(a *Agent) {
 		a.Tools = tools
 	}
@@ -127,12 +127,45 @@ func (a *Agent) Run(ctx context.Context, state State) AgentResponse {
 		ctx,
 		a.Instructions,
 		state.GetMessages(),
+		a.Tools,
 	)
 	if err != nil {
+		fmt.Println("Error executing agent:", err)
 		return AgentResponse{
 			Content:   "",
 			Error:     err,
 			NextAgent: "",
+		}
+	}
+	if response.IsToolCall {
+		for _, tool := range a.Tools {
+			for _, toolCall := range response.ToolCalls {
+				if tool.GetName() == toolCall.Name {
+					params := make(map[string]interface{})
+					if err := json.Unmarshal([]byte(toolCall.Arguments), &params); err != nil {
+						fmt.Println("Error unmarshalling tool call arguments:", err)
+						return AgentResponse{
+							Content:   "",
+							Error:     err,
+							NextAgent: "",
+						}
+					}
+
+					// TODO: Refactor?
+					for k, v := range params {
+						if floatVal, ok := v.(float64); ok && floatVal == float64(int(floatVal)) {
+							params[k] = int(floatVal)
+						}
+					}
+
+					output := tool.Run(ctx, state, &ToolParams{Params: params})
+					return AgentResponse{
+						Content:   output.Output,
+						Error:     nil,
+						NextAgent: "",
+					}
+				}
+			}
 		}
 	}
 

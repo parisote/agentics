@@ -35,12 +35,7 @@ func main() {
 		}),
 	)
 
-	graph := agentics.Graph{
-		State: &ownstate.OwnState{
-			Step:     0,
-			Messages: []string{"hello world"},
-		},
-	}
+	graph := agentics.Graph{}
 
 	graph.AddAgent(agent1)
 	graph.AddAgent(agent2)
@@ -48,5 +43,8 @@ func main() {
 	graph.SetEntrypoint(agent1.Name)
 	graph.AddRelation("agent1", "agent2")
 	graph.AddRelation("agent2", "agent3")
-	graph.Run(context.Background())
+	graph.Run(context.Background(), &ownstate.OwnState{
+		Step:     0,
+		Messages: []string{"hello world"},
+	})
 }

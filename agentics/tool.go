@@ -1,13 +1,71 @@
 package agentics
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
+
+type ToolInterface interface {
+	GetName() string
+	GetDescription() string
+	GetParameters() []DescriptionParams
+	Run(ctx context.Context, state State, input *ToolParams) *ToolResponse
+}
+
+type ToolResponse struct {
+	Output string
+}
+
+type ToolParams struct {
+	Params map[string]interface{}
+}
 
 type Tool struct {
 	Name        string
 	Description string
-	Function    func(state State) string
+	Parameters  []DescriptionParams
+	Function    func(ctx context.Context, state State, input *ToolParams) interface{}
 }
 
-func (t *Tool) Run(ctx context.Context, state State) string {
-	return t.Function(state)
+type DescriptionParams struct {
+	Name string
+	Type string
+}
+
+func NewTool(name string, description string, parameters []DescriptionParams, function func(ctx context.Context, state State, input *ToolParams) interface{}) ToolInterface {
+	return &Tool{
+		Name:        name,
+		Description: description,
+		Parameters:  parameters,
+		Function:    function,
+	}
+}
+
+func (t *Tool) GetName() string {
+	return t.Name
+}
+
+func (t *Tool) GetDescription() string {
+	return t.Description
+}
+
+func (t *Tool) GetParameters() []DescriptionParams {
+	return t.Parameters
+}
+
+func (t *Tool) Run(ctx context.Context, state State, input *ToolParams) *ToolResponse {
+	output := t.Function(ctx, state, input)
+
+	switch output := output.(type) {
+	case string:
+		return &ToolResponse{
+			Output: output,
+		}
+	case int:
+		return &ToolResponse{
+			Output: fmt.Sprintf("%d", output),
+		}
+	}
+
+	return nil
 }
