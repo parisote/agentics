@@ -20,7 +20,9 @@ func main() {
 
 	graph.AddAgent(agent)
 	graph.SetEntrypoint(agent.Name)
-	graph.Run(context.Background(), &agentics.InputState{
+	response := graph.Run(context.Background(), &agentics.InputState{
 		Messages: []string{"Hello, how are you?"},
 	})
+
+	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
 }

@@ -57,9 +57,10 @@ func main() {
 	graph := agentics.Graph{}
 	graph.AddAgent(agent)
 	graph.SetEntrypoint(agent.Name)
-	graph.Run(ctx, state)
+	response := graph.Run(ctx, state)
+	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
 
 	state.AddMessages([]string{"how many is 30 / 10?"})
-	graph.Run(ctx, state)
-
+	response = graph.Run(ctx, state)
+	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
 }
