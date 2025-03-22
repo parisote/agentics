@@ -1,6 +1,6 @@
-# AgentICS
+# Agentics
 
-Agentic is a Go library for building and orchestrating AI agent systems. It provides a flexible framework for creating agents that can interact with Large Language Models (LLMs) and execute custom tools.
+Agentics is a Go library for building and orchestrating AI agent systems. It provides a flexible framework for creating agents that can interact with Large Language Models (LLMs) and execute custom tools.
 
 ## Features
 
