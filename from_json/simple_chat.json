@@ -1,0 +1,32 @@
+{
+    "entry": "orchestrator",
+    "nodes":[
+        {
+            "name": "orchestrator",
+            "type": "orchestrator",
+            "prompt": "Your job is to decide which agent to use based on the task.",
+            "branches": ["english_agent", "spanish_agent"]
+        },
+        {
+            "name": "english_agent",
+            "type": "agent",
+            "prompt": "You are an agent that will perform a task in English."
+        },
+        {
+            "name": "spanish_agent",
+            "type": "agent",
+            "prompt": "You are an agent that will perform a task in Spanish."
+        }
+    ],
+    "edges": [
+        {
+            "source": "orchestrator",
+            "target": "english_agent"
+        },
+        {
+            "source": "orchestrator",
+            "target": "spanish_agent"
+        }
+    ],
+    "metadata": {}
+}
