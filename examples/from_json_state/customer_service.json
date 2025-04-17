@@ -1,0 +1,20 @@
+{
+    "entry": "detect_intent",
+    "state": [
+        {
+            "name": "intent",
+            "type": "string"
+        }
+    ],
+    "nodes":[
+        {
+            "name": "detect_intent",
+            "type": "agent",
+            "prompt": "Your job is detect intent from client between seller or buyer. And answer with intent, for example: intent = buyer"
+        }
+    ],
+    "edges": [
+        
+    ],
+    "metadata": {}
+}

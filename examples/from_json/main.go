@@ -13,12 +13,17 @@ import (
 
 type Graph struct {
 	Entry    string                 `json:"entry"`
+	State    []State                `json:"state"`
 	Nodes    []Node                 `json:"nodes"`
 	Edges    []Edge                 `json:"edges"`
 	Metadata map[string]interface{} `json:"metadata"` // flexible
 }
 
-// Node representa cada vértice (agente u orquestador).
+type State struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
 type Node struct {
 	Name     string   `json:"name"`
 	Type     string   `json:"type"`
@@ -26,7 +31,6 @@ type Node struct {
 	Branches []string `json:"branches,omitempty"` // solo existe en el orquestador
 }
 
-// Edge describe una arista dirigida.
 type Edge struct {
 	Source string `json:"source"`
 	Target string `json:"target"`
