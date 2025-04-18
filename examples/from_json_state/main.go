@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"go/ast"
 	"go/importer"
@@ -23,9 +24,36 @@ const tmpl = `
 package dyn
 import (
 	"fmt"
-	"github.com/parisote/agentics/agentics"
+	"reflect"
+	"strings"
 )
-func Run(state agentics.State) error {
+
+type IntentState struct {
+	Att      map[string]interface{}
+	Messages []string
+}
+
+func (s *IntentState) GetMessages() []string {
+	return s.Messages
+}
+
+func (s *IntentState) AddMessages(messages []string) {
+	s.Messages = append(s.Messages, messages...)
+}
+
+func (s *IntentState) AddAtt(attName string, att interface{}) {
+	if s.Att == nil {
+		s.Att = make(map[string]interface{})
+	}
+	s.Att[attName] = att
+}
+
+func (s *IntentState) GetAtt(attName string) interface{} {
+	return s.Att[attName]
+}
+
+
+func Run(state interface{}) error {
 	%s
 	return nil
 }`
@@ -80,7 +108,7 @@ func main() {
 	}
 
 	state := &IntentState{
-		Messages: []string{"Hi, i interesing in buy a new car"},
+		Messages: []string{"Hi, i interesing in sell my car"},
 	}
 
 	for _, s := range jsonGraph.State {
@@ -101,30 +129,11 @@ func main() {
 		if node.Type == "orchestrator" {
 			a = agentics.NewAgent(node.Name, node.Prompt, agentics.WithBranchs(node.Branches))
 		} else {
-
-			/*
-				agentics.WithPostStateFunction(func(state agentics.State) error {
-							newState := state.(*IntentState)
-							raw := newState.GetAtt("intent").(reflect.Value)
-							fld := raw.FieldByName("Intent")
-
-							msg := newState.GetMessages()[len(newState.GetMessages())-1]
-
-							fld.SetString(strings.Split(msg, " = ")[1])
-							return nil
-						})
-			*/
-
 			fnRaw := indent(node.Functions[0].Code, 1)
 			fullSource := fmt.Sprintf(tmpl, fnRaw)
 
 			i := interp.New(interp.Options{})
 			i.Use(stdlib.Symbols)
-			i.Use(interp.Exports{
-				"github.com/parisote/agentics/agentics": {
-					"State": reflect.ValueOf((*agentics.State)(nil)).Elem(),
-				},
-			})
 
 			_, err := i.Eval(fullSource)
 			if err != nil {
@@ -133,15 +142,25 @@ func main() {
 			}
 
 			v, _ := i.Eval("dyn.Run")
-			fn := v.Interface().(func(agentics.State) error)
+			fn := v.Interface().(func(interface{}) error)
 
-			a = agentics.NewAgent(node.Name, node.Prompt, agentics.WithPostStateFunction(fn))
+			adaptedFn := func(state agentics.State) error {
+				intentState := state.(*IntentState)
+
+				stateMap := map[string]interface{}{
+					"intent":   intentState.GetAtt("intent"),
+					"noIntent": intentState.GetAtt("noIntent"),
+					"messages": intentState.GetMessages(),
+				}
+
+				return fn(stateMap)
+			}
+
+			a = agentics.NewAgent(node.Name, node.Prompt, agentics.WithPostStateFunction(adaptedFn))
 		}
 
 		graph.AddAgent(a)
 	}
-
-	/*newState := state.(*IntentState)\nraw := newState.GetAtt(\"intent\").(reflect.Value)\nfld := raw.FieldByName(\"Intent\")\nmsg := newState.GetMessages()[len(newState.GetMessages())-1]\nfld.SetString(strings.Split(msg, \" = \")[1])*/
 
 	graph.SetEntrypoint("detect_intent")
 
@@ -149,9 +168,10 @@ func main() {
 		graph.AddRelation(edge.Source, edge.Target)
 	}
 
-	//response := graph.Run(context.Background(), state)
-	//fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
-	//fmt.Println("intent = ", state.GetAtt("intent"))
+	response := graph.Run(context.Background(), state)
+	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
+	fmt.Println("intent = ", state.GetAtt("intent"))
+	fmt.Println("noIntent = ", state.GetAtt("noIntent"))
 }
 
 type IntentState struct {
@@ -186,17 +206,15 @@ func indent(body string, tabs int) string {
 func IsValid(src string) error {
 	fset := token.NewFileSet()
 
-	// 1️⃣  Parseo: errores de sintaxis
 	file, err := parser.ParseFile(fset, "snippet.go", src, parser.AllErrors)
 	if err != nil {
-		return err // error de sintaxis
+		return err
 	}
 
-	// 2️⃣  Chequeo de tipos + resolución de imports
 	conf := types.Config{
-		Importer: importer.Default(), // usa las libs instaladas de tu GOPATH / mod cache
-		Error:    func(err error) {}, // opcional: recolecta todos los errores en vez de abortar
+		Importer: importer.Default(),
+		Error:    func(err error) {},
 	}
 	_, err = conf.Check("snippet", fset, []*ast.File{file}, nil)
-	return err // nil si pasó ambas fases
+	return err
 }

@@ -4,6 +4,10 @@
         {
             "name": "intent",
             "type": "string"
+        },
+        {
+            "name": "noIntent",
+            "type": "string"
         }
     ],
     "nodes":[
@@ -14,7 +18,7 @@
             "functions": [
                 {
                     "type": "post",
-                    "code": "fmt.Println(\"HOLA\")"
+                     "code": "stateMap := state.(map[string]interface{})\nraw := stateMap[\"intent\"].(reflect.Value)\nrawNoIntent := stateMap[\"noIntent\"].(reflect.Value)\nfld := raw.FieldByName(\"Intent\")\nfldTwo := rawNoIntent.FieldByName(\"NoIntent\")\nmsg := stateMap[\"messages\"].([]string)[len(stateMap[\"messages\"].([]string))-1]\nfld.SetString(strings.Split(msg, \" = \")[1])\nif strings.Split(msg, \" = \")[1] == \"buyer\" {\nfldTwo.SetString(\"seller\")\n} else {\nfldTwo.SetString(\"buyer\")\n}"
                 }
             ]
         }
