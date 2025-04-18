@@ -10,7 +10,13 @@
         {
             "name": "detect_intent",
             "type": "agent",
-            "prompt": "Your job is detect intent from client between seller or buyer. And answer with intent, for example: intent = buyer"
+            "prompt": "Your job is detect intent from client between seller or buyer. And answer with intent, for example: intent = buyer",
+            "functions": [
+                {
+                    "type": "post",
+                    "code": "fmt.Println(\"HOLA\")"
+                }
+            ]
         }
     ],
     "edges": [

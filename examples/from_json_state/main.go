@@ -1,8 +1,12 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"go/ast"
+	"go/importer"
+	"go/parser"
+	"go/token"
+	"go/types"
 	"log"
 	"os"
 	"reflect"
@@ -11,14 +15,27 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/parisote/agentics/agentics"
 	"github.com/subosito/gotenv"
+	"github.com/traefik/yaegi/interp"
+	"github.com/traefik/yaegi/stdlib"
 )
+
+const tmpl = `
+package dyn
+import (
+	"fmt"
+	"github.com/parisote/agentics/agentics"
+)
+func Run(state agentics.State) error {
+	%s
+	return nil
+}`
 
 type Graph struct {
 	Entry    string                 `json:"entry"`
 	State    []State                `json:"state"`
 	Nodes    []Node                 `json:"nodes"`
 	Edges    []Edge                 `json:"edges"`
-	Metadata map[string]interface{} `json:"metadata"` // flexible
+	Metadata map[string]interface{} `json:"metadata"`
 }
 
 type State struct {
@@ -27,10 +44,16 @@ type State struct {
 }
 
 type Node struct {
-	Name     string   `json:"name"`
-	Type     string   `json:"type"`
-	Prompt   string   `json:"prompt"`
-	Branches []string `json:"branches,omitempty"` // solo existe en el orquestador
+	Name      string     `json:"name"`
+	Type      string     `json:"type"`
+	Prompt    string     `json:"prompt"`
+	Branches  []string   `json:"branches,omitempty"` // solo existe en el orquestador
+	Functions []Function `json:"functions,omitempty"`
+}
+
+type Function struct {
+	Type string `json:"type"`
+	Code string `json:"code"`
 }
 
 type Edge struct {
@@ -61,7 +84,6 @@ func main() {
 	}
 
 	for _, s := range jsonGraph.State {
-		fmt.Println("field ", s.Name)
 		sf := reflect.StructField{
 			Name: strings.Title(s.Name),
 			Type: reflect.TypeOf(""),
@@ -79,21 +101,47 @@ func main() {
 		if node.Type == "orchestrator" {
 			a = agentics.NewAgent(node.Name, node.Prompt, agentics.WithBranchs(node.Branches))
 		} else {
-			a = agentics.NewAgent(node.Name, node.Prompt,
+
+			/*
 				agentics.WithPostStateFunction(func(state agentics.State) error {
-					newState := state.(*IntentState)
-					raw := newState.GetAtt("intent").(reflect.Value)
-					fld := raw.FieldByName("Intent")
+							newState := state.(*IntentState)
+							raw := newState.GetAtt("intent").(reflect.Value)
+							fld := raw.FieldByName("Intent")
 
-					msg := newState.GetMessages()[len(newState.GetMessages())-1]
+							msg := newState.GetMessages()[len(newState.GetMessages())-1]
 
-					fld.SetString(strings.Split(msg, " = ")[1])
-					return nil
-				}))
+							fld.SetString(strings.Split(msg, " = ")[1])
+							return nil
+						})
+			*/
+
+			fnRaw := indent(node.Functions[0].Code, 1)
+			fullSource := fmt.Sprintf(tmpl, fnRaw)
+
+			i := interp.New(interp.Options{})
+			i.Use(stdlib.Symbols)
+			i.Use(interp.Exports{
+				"github.com/parisote/agentics/agentics": {
+					"State": reflect.ValueOf((*agentics.State)(nil)).Elem(),
+				},
+			})
+
+			_, err := i.Eval(fullSource)
+			if err != nil {
+				fmt.Printf("yaegi: %v\n\n----- código generado -----\n%s", err, fullSource)
+				return
+			}
+
+			v, _ := i.Eval("dyn.Run")
+			fn := v.Interface().(func(agentics.State) error)
+
+			a = agentics.NewAgent(node.Name, node.Prompt, agentics.WithPostStateFunction(fn))
 		}
 
 		graph.AddAgent(a)
 	}
+
+	/*newState := state.(*IntentState)\nraw := newState.GetAtt(\"intent\").(reflect.Value)\nfld := raw.FieldByName(\"Intent\")\nmsg := newState.GetMessages()[len(newState.GetMessages())-1]\nfld.SetString(strings.Split(msg, \" = \")[1])*/
 
 	graph.SetEntrypoint("detect_intent")
 
@@ -101,10 +149,9 @@ func main() {
 		graph.AddRelation(edge.Source, edge.Target)
 	}
 
-	response := graph.Run(context.Background(), state)
-	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
-
-	fmt.Println("intent = ", state.GetAtt("intent"))
+	//response := graph.Run(context.Background(), state)
+	//fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
+	//fmt.Println("intent = ", state.GetAtt("intent"))
 }
 
 type IntentState struct {
@@ -129,4 +176,27 @@ func (s *IntentState) AddAtt(attName string, att interface{}) {
 
 func (s *IntentState) GetAtt(attName string) interface{} {
 	return s.Att[attName]
+}
+
+func indent(body string, tabs int) string {
+	pad := strings.Repeat("\t", tabs)
+	return pad + strings.ReplaceAll(body, "\n", "\n"+pad)
+}
+
+func IsValid(src string) error {
+	fset := token.NewFileSet()
+
+	// 1️⃣  Parseo: errores de sintaxis
+	file, err := parser.ParseFile(fset, "snippet.go", src, parser.AllErrors)
+	if err != nil {
+		return err // error de sintaxis
+	}
+
+	// 2️⃣  Chequeo de tipos + resolución de imports
+	conf := types.Config{
+		Importer: importer.Default(), // usa las libs instaladas de tu GOPATH / mod cache
+		Error:    func(err error) {}, // opcional: recolecta todos los errores en vez de abortar
+	}
+	_, err = conf.Check("snippet", fset, []*ast.File{file}, nil)
+	return err // nil si pasó ambas fases
 }
