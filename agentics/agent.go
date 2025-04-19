@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/valyala/fasttemplate"
@@ -124,14 +125,39 @@ func (a *Agent) Run(ctx context.Context, bag *Bag[any], mem Memory) AgentRespons
 		}
 	}
 
+	var c *Context
+	if len(a.hooks) > 0 {
+		c = &Context{
+			Bag:    bag,
+			Memory: mem,
+			HTTP:   http.DefaultClient,
+			DB:     nil,
+		}
+	}
+
 	for _, h := range a.hooks {
 		if h.kind == PreHook {
-			h.fn(ctx, bag, mem)
+			h.fn(ctx, c)
 		}
 	}
 
 	tpl := fasttemplate.New(a.Instructions, "{{", "}}")
-	prompt := tpl.ExecuteString(bag.All())
+
+	// Convertir valores no string a string
+	bagValues := bag.All()
+	stringValues := make(map[string]interface{})
+	for k, v := range bagValues {
+		switch val := v.(type) {
+		case string:
+			stringValues[k] = val
+		case fmt.Stringer:
+			stringValues[k] = val.String()
+		default:
+			stringValues[k] = fmt.Sprintf("%v", val)
+		}
+	}
+
+	prompt := tpl.ExecuteString(stringValues)
 
 	response, err := a.Client.provider.Execute(
 		ctx,
@@ -197,7 +223,7 @@ func (a *Agent) Run(ctx context.Context, bag *Bag[any], mem Memory) AgentRespons
 
 	for _, h := range a.hooks {
 		if h.kind == PostHook {
-			h.fn(ctx, bag, mem)
+			h.fn(ctx, c)
 		}
 	}
 

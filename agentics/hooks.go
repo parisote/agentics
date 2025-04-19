@@ -20,7 +20,7 @@ type Context struct {
 	DB     *sql.DB
 }
 
-type Func func(ctx context.Context, bag *Bag[any], mem Memory) error
+type Func func(ctx context.Context, c *Context) error
 
 var hookRegistry = map[string]Func{}
 

@@ -46,8 +46,8 @@ func main() {
 	fmt.Printf("Steps: %d\n", response.Bag.Get("step"))
 }
 
-func plusStep(ctx context.Context, bag *agentics.Bag[any], mem agentics.Memory) error {
-	v := bag.Get("step").(int)
-	bag.Set("step", v+10)
+func plusStep(ctx context.Context, c *agentics.Context) error {
+	v := c.Bag.Get("step").(int)
+	c.Bag.Set("step", v+10)
 	return nil
 }

@@ -1,0 +1,18 @@
+{
+    "entry": "weather",
+    "nodes": [
+      {
+        "name": "weather",
+        "type": "agent",
+        "prompt": "Your job is answer the weather in the Buenos Aires City, the temperature is {{weather_c}}",
+        "functions": [
+                {
+                    "type": "pre",
+                    "name": "fetchWeather"
+                }
+        ]
+      }
+    ],
+    "edges": [
+    ]
+  }

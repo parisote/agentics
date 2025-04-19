@@ -31,19 +31,19 @@ func main() {
 	fmt.Println("step = ", response.Bag.Get("step"))
 }
 
-func changeIntent(ctx context.Context, bag *agentics.Bag[any], mem agentics.Memory) error {
-	lastMessage := mem.LastN(1)[0].Content
+func changeIntent(ctx context.Context, c *agentics.Context) error {
+	lastMessage := c.Memory.LastN(1)[0].Content
 	if strings.Contains(lastMessage, "buyer") {
-		bag.Set("intent", "buyer")
-		bag.Set("noIntent", "seller")
+		c.Bag.Set("intent", "buyer")
+		c.Bag.Set("noIntent", "seller")
 	} else {
-		bag.Set("intent", "seller")
-		bag.Set("noIntent", "buyer")
+		c.Bag.Set("intent", "seller")
+		c.Bag.Set("noIntent", "buyer")
 	}
 	return nil
 }
 
-func fetchAlgo(ctx context.Context, bag *agentics.Bag[any], mem agentics.Memory) error {
-	bag.Set("step", 10)
+func fetchAlgo(ctx context.Context, c *agentics.Context) error {
+	c.Bag.Set("step", 10)
 	return nil
 }
