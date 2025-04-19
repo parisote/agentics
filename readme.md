@@ -22,11 +22,11 @@ Agentics lets you compose **agents**, **tools**, **hooks** and **branching graph
 ```bash
 go get github.com/parisote/agentics
 ```
-Requires Go 1.21+.
+Requires Go 1.21+.
 
 ---
 
-## Quick start
+## Quick start
 ```go
 package main
 
@@ -51,12 +51,15 @@ func main() {
     )
 
     // Graph wiring
-    g := agentics.NewGraph(greet, weather)
-    g.AddRelation("greeter", "weather")
+    graph := agentics.NewGraph(bag, mem)
+    graph.AddAgent(greet)
+    graph.AddAgent(weather)
+    graph.SetEntrypoint(greet.Name)
+    graph.AddRelation("greeter", "weather")
 
     bag.Set("name", "Tomas")
 
-    _ = g.Run(context.Background(), bag, mem)
+    response := graph.Run(context.Background())
     fmt.Printf("Temp: %.1f\n", bag.Get("weather_c"))
 }
 ```
@@ -64,18 +67,21 @@ func main() {
 ---
 
 ## Examples
-* **`examples/simple_chat`** – REPL chat with a single agent
-* **`examples/tools`** – define and call custom Go tools
-* **`examples/branching`** – orchestrator that routes to English / Spanish agents
-* **`examples/from_json_state`** – load graph + hooks from a JSON descriptor
+* **`examples/simple_agent`** – Basic usage with a single agent
+* **`examples/simple_chat`** – REPL chat with a single agent
+* **`examples/with_tool`** – define and call custom Go tools
+* **`examples/branching`** – orchestrator that routes to English / Spanish agents
+* **`examples/from_json_state`** – load graph + hooks from a JSON descriptor
+* **`examples/advance`** – more advanced usage
+* **`examples/hooks`** – Demonstrates the use of custom hooks
 
 ### Tools integration
 ```go
 multiply := agentics.NewTool(
     "multiply",
     "Multiply two integers.",
-    []agentics.DescriptionParams{{Name: "a", Type: "int"}, {Name: "b", Type: "int"}},
-    func(_ context.Context, bag *agentics.Bag[any], p *agentics.ToolParams) any {
+    []agentics.DescriptionParams{{Name: "a", Type: "integer"}, {Name: "b", Type: "integer"}},
+    func(ctx context.Context, bag *agentics.Bag[any], p *agentics.ToolParams) interface{} {
         return p.Params["a"].(int) * p.Params["b"].(int)
     },
 )
@@ -86,7 +92,7 @@ agent := agentics.NewAgent("calc", "Use multiply when needed.", agentics.WithToo
 ```go
 orch := agentics.NewAgent("orchestrator",
     "Decide which agent should answer.",
-    agentics.WithBranches([]string{"en", "es"}),
+    agentics.WithBranchs([]string{"english_agent", "spanish_agent"}),
 )
 ```
 
@@ -165,9 +171,11 @@ func fetchWeather(ctx context.Context, c *agentics.Context) error {
 ### Graph
 | Method | Description |
 |--------|-------------|
-| `NewGraph(nodes...)` | Instantiate graph.
+| `NewGraph(bag, mem)` | Instantiate graph with Bag and Memory.
+| `AddAgent(agent)` | Add agent to graph.
+| `SetEntrypoint(name)` | Set entrypoint agent.
 | `AddRelation(a,b)` | Connect nodes.
-| `Run(ctx, bag, mem)` | Execute flow.
+| `Run(ctx)` | Execute flow and return response.
 
 ---
 
