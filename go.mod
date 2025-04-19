@@ -4,7 +4,6 @@ go 1.21.3
 
 require (
 	github.com/anthropics/anthropic-sdk-go v0.2.0-alpha.13
-	github.com/goccy/go-json v0.10.5
 	github.com/openai/openai-go v0.1.0-alpha.67
 	github.com/subosito/gotenv v1.6.0
 	github.com/valyala/fasttemplate v1.2.2
