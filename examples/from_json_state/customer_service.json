@@ -8,6 +8,10 @@
         {
             "name": "noIntent",
             "type": "string"
+        },
+        {
+            "name": "step",
+            "type": "int"
         }
     ],
     "nodes":[
@@ -17,8 +21,12 @@
             "prompt": "Your job is detect intent from client between seller or buyer. And answer with intent, for example: intent = buyer",
             "functions": [
                 {
+                    "type": "pre",
+                     "code": "stateMap := state.(map[string]interface{})\nrawStep := stateMap[\"step\"].(reflect.Value)\nfldStep := rawStep.FieldByName(\"Step\")\nfldStep.SetInt(fldStep.Int() + 20)"
+                },
+                {
                     "type": "post",
-                     "code": "stateMap := state.(map[string]interface{})\nraw := stateMap[\"intent\"].(reflect.Value)\nrawNoIntent := stateMap[\"noIntent\"].(reflect.Value)\nfld := raw.FieldByName(\"Intent\")\nfldTwo := rawNoIntent.FieldByName(\"NoIntent\")\nmsg := stateMap[\"messages\"].([]string)[len(stateMap[\"messages\"].([]string))-1]\nfld.SetString(strings.Split(msg, \" = \")[1])\nif strings.Split(msg, \" = \")[1] == \"buyer\" {\nfldTwo.SetString(\"seller\")\n} else {\nfldTwo.SetString(\"buyer\")\n}"
+                     "code": "stateMap := state.(map[string]interface{})\nraw := stateMap[\"intent\"].(reflect.Value)\nrawNoIntent := stateMap[\"noIntent\"].(reflect.Value)\nrawStep := stateMap[\"step\"].(reflect.Value)\nfld := raw.FieldByName(\"Intent\")\nfldTwo := rawNoIntent.FieldByName(\"NoIntent\")\nfldStep := rawStep.FieldByName(\"Step\")\nmsg := stateMap[\"messages\"].([]string)[len(stateMap[\"messages\"].([]string))-1]\nfld.SetString(strings.Split(msg, \" = \")[1])\nfldStep.SetInt(fldStep.Int() + 10)\nif strings.Split(msg, \" = \")[1] == \"buyer\" {\nfldTwo.SetString(\"seller\")\n} else {\nfldTwo.SetString(\"buyer\")\n}"
                 }
             ]
         }

@@ -112,9 +112,20 @@ func main() {
 	}
 
 	for _, s := range jsonGraph.State {
+
+		var t reflect.Type
+		switch s.Type {
+		case "string":
+			t = reflect.TypeOf("")
+		case "int":
+			t = reflect.TypeOf(0)
+		case "bool":
+			t = reflect.TypeOf(false)
+		}
+
 		sf := reflect.StructField{
 			Name: strings.Title(s.Name),
-			Type: reflect.TypeOf(""),
+			Type: t,
 			Tag:  reflect.StructTag(fmt.Sprintf(`json:"%s"`, s.Name)),
 		}
 
@@ -129,34 +140,51 @@ func main() {
 		if node.Type == "orchestrator" {
 			a = agentics.NewAgent(node.Name, node.Prompt, agentics.WithBranchs(node.Branches))
 		} else {
-			fnRaw := indent(node.Functions[0].Code, 1)
-			fullSource := fmt.Sprintf(tmpl, fnRaw)
+			var prePostFn map[string]func(state agentics.State) error
+			for _, function := range node.Functions {
+				if prePostFn == nil {
+					prePostFn = make(map[string]func(state agentics.State) error)
+				}
+				fnRaw := indent(function.Code, 1)
+				fullSource := fmt.Sprintf(tmpl, fnRaw)
 
-			i := interp.New(interp.Options{})
-			i.Use(stdlib.Symbols)
+				i := interp.New(interp.Options{})
+				i.Use(stdlib.Symbols)
 
-			_, err := i.Eval(fullSource)
-			if err != nil {
-				fmt.Printf("yaegi: %v\n\n----- código generado -----\n%s", err, fullSource)
-				return
-			}
-
-			v, _ := i.Eval("dyn.Run")
-			fn := v.Interface().(func(interface{}) error)
-
-			adaptedFn := func(state agentics.State) error {
-				intentState := state.(*IntentState)
-
-				stateMap := map[string]interface{}{
-					"intent":   intentState.GetAtt("intent"),
-					"noIntent": intentState.GetAtt("noIntent"),
-					"messages": intentState.GetMessages(),
+				_, err := i.Eval(fullSource)
+				if err != nil {
+					fmt.Printf("yaegi: %v\n\n----- código generado -----\n%s", err, fullSource)
+					return
 				}
 
-				return fn(stateMap)
-			}
+				v, _ := i.Eval("dyn.Run")
+				fn := v.Interface().(func(interface{}) error)
 
-			a = agentics.NewAgent(node.Name, node.Prompt, agentics.WithPostStateFunction(adaptedFn))
+				adaptedFn := func(state agentics.State) error {
+					intentState := state.(*IntentState)
+
+					stateMap := make(map[string]interface{})
+					for attName, attValue := range intentState.GetAllAtts() {
+						stateMap[attName] = attValue
+					}
+
+					stateMap["messages"] = intentState.GetMessages()
+
+					return fn(stateMap)
+				}
+
+				switch function.Type {
+				case "post":
+					prePostFn["post"] = adaptedFn
+				case "pre":
+					prePostFn["pre"] = adaptedFn
+				}
+			}
+			if len(prePostFn) > 0 {
+				a = agentics.NewAgent(node.Name, node.Prompt, agentics.WithPreStateFunction(prePostFn["pre"]), agentics.WithPostStateFunction(prePostFn["post"]))
+			} else {
+				a = agentics.NewAgent(node.Name, node.Prompt)
+			}
 		}
 
 		graph.AddAgent(a)
@@ -172,6 +200,7 @@ func main() {
 	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
 	fmt.Println("intent = ", state.GetAtt("intent"))
 	fmt.Println("noIntent = ", state.GetAtt("noIntent"))
+	fmt.Println("step = ", state.GetAtt("step"))
 }
 
 type IntentState struct {
@@ -196,6 +225,10 @@ func (s *IntentState) AddAtt(attName string, att interface{}) {
 
 func (s *IntentState) GetAtt(attName string) interface{} {
 	return s.Att[attName]
+}
+
+func (s *IntentState) GetAllAtts() map[string]interface{} {
+	return s.Att
 }
 
 func indent(body string, tabs int) string {
