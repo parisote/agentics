@@ -7,7 +7,6 @@ require (
 	github.com/goccy/go-json v0.10.5
 	github.com/openai/openai-go v0.1.0-alpha.67
 	github.com/subosito/gotenv v1.6.0
-	github.com/traefik/yaegi v0.16.1
 	github.com/valyala/fasttemplate v1.2.2
 )
 
