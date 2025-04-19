@@ -16,13 +16,14 @@ func main() {
 
 	agent := agentics.NewAgent("agent", "You are Tomas, a helpful assistant.")
 
-	graph := agentics.Graph{}
-
-	graph.AddAgent(agent)
-	graph.SetEntrypoint(agent.Name)
+	bag := agentics.NewBag[any]()
 	mem := agentics.NewSliceMemory(10)
 	mem.Add("user", "Hello, how are you?")
-	response := graph.Run(context.Background(), agentics.NewBag[any](), mem)
+
+	graph := agentics.NewGraph(bag, mem)
+	graph.AddAgent(agent)
+	graph.SetEntrypoint(agent.Name)
+	response := graph.Run(context.Background())
 
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 }

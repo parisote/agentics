@@ -13,8 +13,8 @@ type Graph struct {
 	Entrypoint string
 	Agents     map[string]AgentInterface
 	Relations  [][]string
-	bag        *Bag[any]
-	mem        Memory
+	Bag        *Bag[any]
+	Mem        Memory
 }
 
 type GraphResponse struct {
@@ -40,15 +40,13 @@ func (g *Graph) SetEntrypoint(agent string) {
 	g.Entrypoint = agent
 }
 
-func (g *Graph) Run(ctx context.Context, bag *Bag[any], mem Memory) *GraphResponse {
-	if bag == nil {
-		g.bag = NewBag[any]()
-	} else {
-		g.bag = bag
+func NewGraph(bag *Bag[any], mem Memory) *Graph {
+	return &Graph{
+		Bag: bag,
+		Mem: mem,
 	}
-
-	g.mem = mem
-
+}
+func (g *Graph) Run(ctx context.Context) *GraphResponse {
 	currentAgent := g.Entrypoint
 	visited := make(map[string]bool)
 	queue := []string{currentAgent}
@@ -63,7 +61,7 @@ func (g *Graph) Run(ctx context.Context, bag *Bag[any], mem Memory) *GraphRespon
 
 		visited[currentAgent] = true
 		agent := g.Agents[currentAgent]
-		response := agent.Run(ctx, g.bag, mem)
+		response := agent.Run(ctx, g.Bag, g.Mem)
 
 		if response.NextAgent != "" {
 			queue = append([]string{response.NextAgent}, queue...)
@@ -75,11 +73,11 @@ func (g *Graph) Run(ctx context.Context, bag *Bag[any], mem Memory) *GraphRespon
 			}
 		}
 
-		g.mem.Add("assistant", response.Content)
+		g.Mem.Add("assistant", response.Content)
 	}
 
 	return &GraphResponse{
-		Bag: g.bag,
-		Mem: g.mem,
+		Bag: g.Bag,
+		Mem: g.Mem,
 	}
 }

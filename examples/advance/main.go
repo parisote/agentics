@@ -28,18 +28,19 @@ func main() {
 		agentics.WithHooks(agentics.PostHook, "plusStep"),
 	)
 
-	graph := agentics.Graph{}
+	bag := agentics.NewBag[any]()
+	bag.Set("step", 0)
+	mem := agentics.NewSliceMemory(10)
+	mem.Add("user", "hello world")
+
+	graph := agentics.NewGraph(bag, mem)
 	graph.AddAgent(agent1)
 	graph.AddAgent(agent2)
 	graph.AddAgent(agent3)
 	graph.SetEntrypoint(agent1.Name)
 	graph.AddRelation("agent1", "agent2")
 	graph.AddRelation("agent2", "agent3")
-	bag := agentics.NewBag[any]()
-	bag.Set("step", 0)
-	mem := agentics.NewSliceMemory(10)
-	mem.Add("user", "hello world")
-	response := graph.Run(context.Background(), bag, mem)
+	response := graph.Run(context.Background())
 
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 	fmt.Printf("Steps: %d\n", response.Bag.Get("step"))

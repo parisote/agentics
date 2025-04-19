@@ -21,8 +21,6 @@ func main() {
 	username := scanner.Text()
 
 	graph := createGraph()
-	bag := agentics.NewBag[any]()
-	mem := agentics.NewSliceMemory(10)
 
 	fmt.Printf("Hola %s! Puedes comenzar a chatear.\n", username)
 
@@ -40,8 +38,8 @@ func main() {
 
 		fmt.Printf("[%s]: %s\n", username, userInput)
 
-		mem.Add("user", userInput)
-		response := graph.Run(context.Background(), bag, mem)
+		graph.Mem.Add("user", userInput)
+		response := graph.Run(context.Background())
 
 		fmt.Printf("[Sistema]: %s\n", response.Mem.LastN(1)[0].Content)
 	}
@@ -55,9 +53,11 @@ func createGraph() agentics.Graph {
 
 	agent := agentics.NewAgent("agent", "You are Tomas, a helpful assistant.")
 
-	graph := agentics.Graph{}
+	bag := agentics.NewBag[any]()
+	mem := agentics.NewSliceMemory(10)
+	graph := agentics.NewGraph(bag, mem)
 
 	graph.AddAgent(agent)
 	graph.SetEntrypoint(agent.Name)
-	return graph
+	return *graph
 }

@@ -22,20 +22,21 @@ func main() {
 		"Your job is to decide which agent to use based on the task.",
 		agentics.WithBranchs([]string{"english_agent", "spanish_agent"}))
 
-	graph := agentics.Graph{}
+	mem := agentics.NewSliceMemory(10)
+	bag := agentics.NewBag[any]()
+	mem.Add("user", "Hello, how are you?")
+
+	graph := agentics.NewGraph(bag, mem)
 	graph.AddAgent(agent1)
 	graph.AddAgent(agent2)
 	graph.AddAgent(orchestrator)
 	graph.SetEntrypoint(orchestrator.Name)
 	graph.AddRelation("orchestrator", "english_agent")
 	graph.AddRelation("orchestrator", "spanish_agent")
-	mem := agentics.NewSliceMemory(10)
-	bag := agentics.NewBag[any]()
-	mem.Add("user", "Hello, how are you?")
-	response := graph.Run(context.Background(), bag, mem)
+	response := graph.Run(context.Background())
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 
 	mem.Add("user", "Hola mundo")
-	response = graph.Run(context.Background(), bag, mem)
+	response = graph.Run(context.Background())
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 }

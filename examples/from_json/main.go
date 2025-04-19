@@ -54,7 +54,11 @@ func main() {
 		log.Fatalf("error al decodificar: %v", err)
 	}
 
-	graph := agentics.Graph{}
+	bag := agentics.NewBag[any]()
+	mem := agentics.NewSliceMemory(10)
+	mem.Add("user", "Hello world")
+
+	graph := agentics.NewGraph(bag, mem)
 	for _, node := range jsonGraph.Nodes {
 		var a *agentics.Agent
 		if node.Type == "orchestrator" {
@@ -72,13 +76,10 @@ func main() {
 		graph.AddRelation(edge.Source, edge.Target)
 	}
 
-	bag := agentics.NewBag[any]()
-	mem := agentics.NewSliceMemory(10)
-	mem.Add("user", "Hello world")
-	response := graph.Run(context.Background(), bag, mem)
+	response := graph.Run(context.Background())
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 
 	mem.Add("user", "Hola mundo")
-	response = graph.Run(context.Background(), bag, mem)
+	response = graph.Run(context.Background())
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 }

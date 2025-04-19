@@ -50,17 +50,18 @@ func main() {
 		agentics.WithTools([]agentics.ToolInterface{toolMultiply, toolDivide}),
 	)
 
-	graph := agentics.Graph{}
-	graph.AddAgent(agent)
-	graph.SetEntrypoint(agent.Name)
 	bag := agentics.NewBag[any]()
 	mem := agentics.NewSliceMemory(10)
 	mem.Add("user", "how many is 3 * 2?")
-	response := graph.Run(ctx, bag, mem)
+
+	graph := agentics.NewGraph(bag, mem)
+	graph.AddAgent(agent)
+	graph.SetEntrypoint(agent.Name)
+
+	response := graph.Run(ctx)
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 
-	mem2 := agentics.NewSliceMemory(10)
-	mem2.Add("user", "how many is 30 / 10?")
-	response = graph.Run(ctx, bag, mem2)
+	mem.Add("user", "how many is 30 / 10?")
+	response = graph.Run(ctx)
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 }
