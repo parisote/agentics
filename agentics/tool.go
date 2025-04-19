@@ -9,7 +9,7 @@ type ToolInterface interface {
 	GetName() string
 	GetDescription() string
 	GetParameters() []DescriptionParams
-	Run(ctx context.Context, state State, input *ToolParams) *ToolResponse
+	Run(ctx context.Context, bag *Bag[any], input *ToolParams) *ToolResponse
 }
 
 type ToolResponse struct {
@@ -24,7 +24,7 @@ type Tool struct {
 	Name        string
 	Description string
 	Parameters  []DescriptionParams
-	Function    func(ctx context.Context, state State, input *ToolParams) interface{}
+	Function    func(ctx context.Context, bag *Bag[any], input *ToolParams) interface{}
 }
 
 type DescriptionParams struct {
@@ -32,7 +32,7 @@ type DescriptionParams struct {
 	Type string
 }
 
-func NewTool(name string, description string, parameters []DescriptionParams, function func(ctx context.Context, state State, input *ToolParams) interface{}) ToolInterface {
+func NewTool(name string, description string, parameters []DescriptionParams, function func(ctx context.Context, bag *Bag[any], input *ToolParams) interface{}) ToolInterface {
 	return &Tool{
 		Name:        name,
 		Description: description,
@@ -53,8 +53,8 @@ func (t *Tool) GetParameters() []DescriptionParams {
 	return t.Parameters
 }
 
-func (t *Tool) Run(ctx context.Context, state State, input *ToolParams) *ToolResponse {
-	output := t.Function(ctx, state, input)
+func (t *Tool) Run(ctx context.Context, bag *Bag[any], input *ToolParams) *ToolResponse {
+	output := t.Function(ctx, bag, input)
 
 	switch output := output.(type) {
 	case string:

@@ -66,20 +66,19 @@ func main() {
 		graph.AddAgent(a)
 	}
 
-	state := &agentics.InputState{
-		Messages: []string{"hello world"},
-	}
-
 	graph.SetEntrypoint("orchestrator")
 
 	for _, edge := range jsonGraph.Edges {
 		graph.AddRelation(edge.Source, edge.Target)
 	}
 
-	response := graph.Run(context.Background(), state)
-	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
+	bag := agentics.NewBag[any]()
+	mem := agentics.NewSliceMemory(10)
+	mem.Add("user", "Hello world")
+	response := graph.Run(context.Background(), bag, mem)
+	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 
-	state.AddMessages([]string{"Hola mundo"})
-	response = graph.Run(context.Background(), state)
-	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
+	mem.Add("user", "Hola mundo")
+	response = graph.Run(context.Background(), bag, mem)
+	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 }

@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/valyala/fasttemplate"
 )
 
 type AgentInterface interface {
-	Run(ctx context.Context, state State) AgentResponse
+	Run(ctx context.Context, bag *Bag[any], mem Memory) AgentResponse
 }
 
 type Agent struct {
@@ -17,12 +19,12 @@ type Agent struct {
 	Model             string
 	Instructions      string
 	Branchs           []string
-	Conditional       func(state State) string
+	Conditional       func(bag *Bag[any]) string
 	Tools             []ToolInterface
 	OutputGuardrails  []string
 	OutputType        string
-	PreStateFunction  func(state State) error
-	PostStateFunction func(state State) error
+	PreStateFunction  func(bag *Bag[any]) error
+	PostStateFunction func(bag *Bag[any]) error
 }
 
 type NextAgent struct {
@@ -91,57 +93,45 @@ func WithModel(model string) AgentOption {
 	}
 }
 
-func WithConditional(conditional func(state State) string) AgentOption {
+func WithConditional(conditional func(bag *Bag[any]) string) AgentOption {
 	return func(a *Agent) {
 		a.Conditional = conditional
 	}
 }
 
-func WithPreStateFunction(stateFunction func(state State) error) AgentOption {
+func WithPreStateFunction(stateFunction func(bag *Bag[any]) error) AgentOption {
 	return func(a *Agent) {
 		a.PreStateFunction = stateFunction
 	}
 }
 
-func WithPostStateFunction(stateFunction func(state State) error) AgentOption {
+func WithPostStateFunction(stateFunction func(bag *Bag[any]) error) AgentOption {
 	return func(a *Agent) {
 		a.PostStateFunction = stateFunction
 	}
 }
 
-func (a *Agent) Run(ctx context.Context, state State) AgentResponse {
+func (a *Agent) Run(ctx context.Context, bag *Bag[any], mem Memory) AgentResponse {
 	fmt.Printf("Running agent: %s\n", a.Name)
 	nextAgent := ""
 
 	if a.Conditional != nil {
 		return AgentResponse{
-			NextAgent: a.Conditional(state),
+			NextAgent: a.Conditional(bag),
 		}
 	}
 
 	if a.PreStateFunction != nil {
-		a.PreStateFunction(state)
+		a.PreStateFunction(bag)
 	}
 
-	for {
-		start := strings.Index(a.Instructions, "{")
-		if start == -1 {
-			break
-		}
-		end := strings.Index(a.Instructions, "}")
-		if end == -1 {
-			break
-		}
-		placeholder := a.Instructions[start+1 : end]
-		fmt.Println("placeholder", placeholder)
-		field := state.GetAtt(placeholder)
-		a.Instructions = strings.ReplaceAll(a.Instructions, "{"+placeholder+"}", fmt.Sprintf("%v", field))
-	}
+	tpl := fasttemplate.New(a.Instructions, "{{", "}}")
+	prompt := tpl.ExecuteString(bag.All())
 
 	response, err := a.Client.provider.Execute(
 		ctx,
-		a.Instructions,
-		state.GetMessages(),
+		prompt,
+		mem.All(),
 		a.Tools,
 	)
 	if err != nil {
@@ -173,7 +163,7 @@ func (a *Agent) Run(ctx context.Context, state State) AgentResponse {
 						}
 					}
 
-					output := tool.Run(ctx, state, &ToolParams{Params: params})
+					output := tool.Run(ctx, bag, &ToolParams{Params: params})
 					return AgentResponse{
 						Content:   output.Output,
 						Error:     nil,
@@ -198,10 +188,10 @@ func (a *Agent) Run(ctx context.Context, state State) AgentResponse {
 		nextAgent = nextAgentStruct.Next
 	}
 
-	state.AddMessages([]string{response.GetContent()})
+	mem.Add("assistant", response.GetContent())
 
 	if a.PostStateFunction != nil {
-		a.PostStateFunction(state)
+		a.PostStateFunction(bag)
 	}
 
 	return AgentResponse{

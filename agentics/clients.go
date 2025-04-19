@@ -23,7 +23,7 @@ type ModelClient struct {
 }
 
 type ModelProvider interface {
-	Execute(ctx context.Context, prompt string, messages []string, tools []ToolInterface) (*ModelResponse, error)
+	Execute(ctx context.Context, prompt string, messages []Message, tools []ToolInterface) (*ModelResponse, error)
 }
 
 type ModelResponse struct {
@@ -53,11 +53,11 @@ func NewOpenAIProvider() *OpenAIProvider {
 	}
 }
 
-func (p *OpenAIProvider) Execute(ctx context.Context, prompt string, messages []string, tools []ToolInterface) (*ModelResponse, error) {
+func (p *OpenAIProvider) Execute(ctx context.Context, prompt string, messages []Message, tools []ToolInterface) (*ModelResponse, error) {
 	chatCompletion, err := p.Client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
 		Messages: []openai.ChatCompletionMessageParamUnion{
 			openai.SystemMessage(prompt),
-			openai.UserMessage(messages[len(messages)-1]),
+			openai.UserMessage(messages[len(messages)-1].Content),
 		},
 		Model: openai.ChatModelGPT4o,
 		Tools: p.getOpenAITools(tools),
@@ -124,7 +124,7 @@ func NewAnthropicProvider() *AnthropicProvider {
 	}
 }
 
-func (p *AnthropicProvider) Execute(ctx context.Context, prompt string, messages []string, tools []ToolInterface) (*ModelResponse, error) {
+func (p *AnthropicProvider) Execute(ctx context.Context, prompt string, messages []Message, tools []ToolInterface) (*ModelResponse, error) {
 	return nil, nil
 }
 

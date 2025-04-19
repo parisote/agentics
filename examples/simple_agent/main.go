@@ -20,9 +20,9 @@ func main() {
 
 	graph.AddAgent(agent)
 	graph.SetEntrypoint(agent.Name)
-	response := graph.Run(context.Background(), &agentics.InputState{
-		Messages: []string{"Hello, how are you?"},
-	})
+	mem := agentics.NewSliceMemory(10)
+	mem.Add("user", "Hello, how are you?")
+	response := graph.Run(context.Background(), agentics.NewBag[any](), mem)
 
-	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
+	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 }

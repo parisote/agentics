@@ -24,7 +24,7 @@ func main() {
 			{Name: "a", Type: "integer"},
 			{Name: "b", Type: "integer"},
 		},
-		func(ctx context.Context, state agentics.State, input *agentics.ToolParams) interface{} {
+		func(ctx context.Context, bag *agentics.Bag[any], input *agentics.ToolParams) interface{} {
 			result := input.Params["a"].(int) * input.Params["b"].(int)
 			return result
 		})
@@ -37,7 +37,7 @@ func main() {
 			{Name: "a", Type: "integer"},
 			{Name: "b", Type: "integer"},
 		},
-		func(ctx context.Context, state agentics.State, input *agentics.ToolParams) interface{} {
+		func(ctx context.Context, bag *agentics.Bag[any], input *agentics.ToolParams) interface{} {
 			if input.Params["b"].(int) == 0 {
 				return "Error: Division by zero"
 			}
@@ -50,17 +50,17 @@ func main() {
 		agentics.WithTools([]agentics.ToolInterface{toolMultiply, toolDivide}),
 	)
 
-	state := &agentics.InputState{
-		Messages: []string{"how many is 3 * 2?"},
-	}
-
 	graph := agentics.Graph{}
 	graph.AddAgent(agent)
 	graph.SetEntrypoint(agent.Name)
-	response := graph.Run(ctx, state)
-	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
+	bag := agentics.NewBag[any]()
+	mem := agentics.NewSliceMemory(10)
+	mem.Add("user", "how many is 3 * 2?")
+	response := graph.Run(ctx, bag, mem)
+	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 
-	state.AddMessages([]string{"how many is 30 / 10?"})
-	response = graph.Run(ctx, state)
-	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
+	mem2 := agentics.NewSliceMemory(10)
+	mem2.Add("user", "how many is 30 / 10?")
+	response = graph.Run(ctx, bag, mem2)
+	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 }

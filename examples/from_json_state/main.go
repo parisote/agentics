@@ -26,34 +26,21 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
+	"maps"
 )
 
-type IntentState struct {
-	Att      map[string]interface{}
-	Messages []string
+type Bag[T any] struct {
+	m  map[string]T
+	mu sync.RWMutex
 }
 
-func (s *IntentState) GetMessages() []string {
-	return s.Messages
-}
+func NewBag[T any]() *Bag[T]        { return &Bag[T]{m: make(map[string]T)} }
+func (b *Bag[T]) Get(k string) T    { b.mu.RLock(); v := b.m[k]; b.mu.RUnlock(); return v }
+func (b *Bag[T]) Set(k string, v T) { b.mu.Lock(); b.m[k] = v; b.mu.Unlock() }
+func (b *Bag[T]) All() map[string]T { b.mu.RLock(); defer b.mu.RUnlock(); return maps.Clone(b.m) }
 
-func (s *IntentState) AddMessages(messages []string) {
-	s.Messages = append(s.Messages, messages...)
-}
-
-func (s *IntentState) AddAtt(attName string, att interface{}) {
-	if s.Att == nil {
-		s.Att = make(map[string]interface{})
-	}
-	s.Att[attName] = att
-}
-
-func (s *IntentState) GetAtt(attName string) interface{} {
-	return s.Att[attName]
-}
-
-
-func Run(state interface{}) error {
+func Run(bag interface{}) error {
 	%s
 	return nil
 }`
@@ -107,9 +94,9 @@ func main() {
 		log.Fatalf("error al decodificar: %v", err)
 	}
 
-	state := &IntentState{
-		Messages: []string{"Hi, i interesing in buy a new car"},
-	}
+	mem := agentics.NewSliceMemory(10)
+	mem.Add("user", "Hi, i interesing in buy a new car")
+	bag := agentics.NewBag[any]()
 
 	for _, s := range jsonGraph.State {
 
@@ -131,7 +118,7 @@ func main() {
 
 		dynType := reflect.StructOf([]reflect.StructField{sf})
 		v := reflect.New(dynType).Elem()
-		state.AddAtt(s.Name, v)
+		bag.Set(s.Name, v)
 	}
 
 	graph := agentics.Graph{}
@@ -140,10 +127,10 @@ func main() {
 		if node.Type == "orchestrator" {
 			a = agentics.NewAgent(node.Name, node.Prompt, agentics.WithBranchs(node.Branches))
 		} else {
-			var prePostFn map[string]func(state agentics.State) error
+			var prePostFn map[string]func(bag *agentics.Bag[any]) error
 			for _, function := range node.Functions {
 				if prePostFn == nil {
-					prePostFn = make(map[string]func(state agentics.State) error)
+					prePostFn = make(map[string]func(bag *agentics.Bag[any]) error)
 				}
 				fnRaw := indent(function.Code, 1)
 				fullSource := fmt.Sprintf(tmpl, fnRaw)
@@ -160,16 +147,13 @@ func main() {
 				v, _ := i.Eval("dyn.Run")
 				fn := v.Interface().(func(interface{}) error)
 
-				adaptedFn := func(state agentics.State) error {
-					intentState := state.(*IntentState)
-
+				adaptedFn := func(bag *agentics.Bag[any]) error {
 					stateMap := make(map[string]interface{})
-					for attName, attValue := range intentState.GetAllAtts() {
+					for attName, attValue := range bag.All() {
 						stateMap[attName] = attValue
 					}
 
-					stateMap["messages"] = intentState.GetMessages()
-
+					stateMap["messages"] = mem.ToArrayString()
 					return fn(stateMap)
 				}
 
@@ -196,39 +180,11 @@ func main() {
 		graph.AddRelation(edge.Source, edge.Target)
 	}
 
-	response := graph.Run(context.Background(), state)
-	fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
-	fmt.Println("intent = ", state.GetAtt("intent"))
-	fmt.Println("noIntent = ", state.GetAtt("noIntent"))
-	fmt.Println("step = ", state.GetAtt("step"))
-}
-
-type IntentState struct {
-	Att      map[string]interface{}
-	Messages []string
-}
-
-func (s *IntentState) GetMessages() []string {
-	return s.Messages
-}
-
-func (s *IntentState) AddMessages(messages []string) {
-	s.Messages = append(s.Messages, messages...)
-}
-
-func (s *IntentState) AddAtt(attName string, att interface{}) {
-	if s.Att == nil {
-		s.Att = make(map[string]interface{})
-	}
-	s.Att[attName] = att
-}
-
-func (s *IntentState) GetAtt(attName string) interface{} {
-	return s.Att[attName]
-}
-
-func (s *IntentState) GetAllAtts() map[string]interface{} {
-	return s.Att
+	response := graph.Run(context.Background(), bag, mem)
+	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
+	fmt.Println("intent = ", response.Bag.Get("intent"))
+	fmt.Println("noIntent = ", response.Bag.Get("noIntent"))
+	fmt.Println("step = ", response.Bag.Get("step"))
 }
 
 func indent(body string, tabs int) string {
