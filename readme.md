@@ -103,8 +103,6 @@ graph.AddRelation("agent2", "agent3")
 
 ## JSON Configuration
 
-## JSON Configuration
-
 Now you can define your agent system using JSON configuration files. Here's an example:
 
 ```json
