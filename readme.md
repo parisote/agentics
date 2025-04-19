@@ -46,7 +46,7 @@ func main() {
     greet := agentics.NewAgent("greeter", "Hello {{name}}!")
     weather := agentics.NewAgent(
         "weather",
-        "Temperature in BA: {{weather_c}}°.",
+        "Temperature in BA: {{weather_c}}°C.",
         agentics.WithHook(agentics.Pre, "fetchWeather"),
     )
 
