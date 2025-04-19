@@ -101,6 +101,61 @@ graph.AddRelation("agent1", "agent2")
 graph.AddRelation("agent2", "agent3")
 ```
 
+## JSON Configuration
+
+## JSON Configuration
+
+Now you can define your agent system using JSON configuration files. Here's an example:
+
+```json
+{
+    "entry": "detect_intent",
+    "state": [
+        {
+            "name": "intent",
+            "type": "string"
+        },
+        {
+            "name": "noIntent",
+            "type": "string"
+        },
+        {
+            "name": "step",
+            "type": "int"
+        }
+    ],
+    "nodes":[
+        {
+            "name": "detect_intent",
+            "type": "agent",
+            "prompt": "Your job is detect intent from client between seller or buyer. And answer with intent, for example: intent = buyer",
+            "functions": [
+                {
+                    "type": "pre",
+                     "code": "stateMap := state.(map[string]interface{})\nrawStep := stateMap[\"step\"].(reflect.Value)\nfldStep := rawStep.FieldByName(\"Step\")\nfldStep.SetInt(fldStep.Int() + 20)"
+                },
+                {
+                    "type": "post",
+                     "code": "stateMap := state.(map[string]interface{})\nraw := stateMap[\"intent\"].(reflect.Value)\nrawNoIntent := stateMap[\"noIntent\"].(reflect.Value)\nrawStep := stateMap[\"step\"].(reflect.Value)\nfld := raw.FieldByName(\"Intent\")\nfldTwo := rawNoIntent.FieldByName(\"NoIntent\")\nfldStep := rawStep.FieldByName(\"Step\")\nmsg := stateMap[\"messages\"].([]string)[len(stateMap[\"messages\"].([]string))-1]\nfld.SetString(strings.Split(msg, \" = \")[1])\nfldStep.SetInt(fldStep.Int() + 10)\nif strings.Split(msg, \" = \")[1] == \"buyer\" {\nfldTwo.SetString(\"seller\")\n} else {\nfldTwo.SetString(\"buyer\")\n}"
+                }
+            ]
+        },
+        {
+            "name": "context_agent",
+            "type": "agent",
+            "prompt": "Your job is say hello to client and ask for a car. If {intent} is buyer, say hello to client and ask for a car. If {intent} is seller, say hello to client and ask for a car."
+        }
+    ],
+    "edges": [
+        {
+            "source": "detect_intent",
+            "target": "context_agent"
+        }
+    ],
+    "metadata": {}
+}
+```
+
 ## Environment Setup
 
 Create a `.env` file in your project root:
