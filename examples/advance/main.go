@@ -14,24 +14,18 @@ func main() {
 		fmt.Println("Warning: Error loading .env file:", err)
 	}
 
+	agentics.RegisterHook("plusStep", plusStep)
+
 	agent1 := agentics.NewAgent("agent1", "You are an agent that will perform a task in English.")
 
 	agent2 := agentics.NewAgent("agent2",
 		"You are an agent that will translate the message to Spanish.",
-		agentics.WithPostStateFunction(func(bag *agentics.Bag[any]) error {
-			v := bag.Get("step").(int)
-			bag.Set("step", v+1)
-			return nil
-		}),
+		agentics.WithHooks(agentics.PostHook, "plusStep"),
 	)
 
 	agent3 := agentics.NewAgent("agent3",
 		"You are an agent that will translate the message to Deutsch.",
-		agentics.WithPostStateFunction(func(bag *agentics.Bag[any]) error {
-			v := bag.Get("step").(int)
-			bag.Set("step", v+1)
-			return nil
-		}),
+		agentics.WithHooks(agentics.PostHook, "plusStep"),
 	)
 
 	graph := agentics.Graph{}
@@ -49,4 +43,10 @@ func main() {
 
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 	fmt.Printf("Steps: %d\n", response.Bag.Get("step"))
+}
+
+func plusStep(ctx context.Context, bag *agentics.Bag[any], mem agentics.Memory) error {
+	v := bag.Get("step").(int)
+	bag.Set("step", v+10)
+	return nil
 }

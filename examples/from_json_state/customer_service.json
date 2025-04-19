@@ -22,11 +22,11 @@
             "functions": [
                 {
                     "type": "pre",
-                     "code": "bagMap := bag.(map[string]interface{})\nrawStep := bagMap[\"step\"].(reflect.Value)\nfldStep := rawStep.FieldByName(\"Step\")\nfldStep.SetInt(fldStep.Int() + 20)\nfmt.Println(\"pre\", fldStep.Int())"
+                    "name": "fetchAlgo"
                 },
                 {
                     "type": "post",
-                     "code": "bagMap := bag.(map[string]interface{})\nraw := bagMap[\"intent\"].(reflect.Value)\nrawNoIntent := bagMap[\"noIntent\"].(reflect.Value)\nrawStep := bagMap[\"step\"].(reflect.Value)\nfld := raw.FieldByName(\"Intent\")\nfldTwo := rawNoIntent.FieldByName(\"NoIntent\")\nfldStep := rawStep.FieldByName(\"Step\")\nmsg := bagMap[\"messages\"].([]string)[len(bagMap[\"messages\"].([]string))-1]\nfld.SetString(strings.Split(msg, \" = \")[1])\nfldStep.SetInt(fldStep.Int() + 10)\nif strings.Split(msg, \" = \")[1] == \"buyer\" {\nfldTwo.SetString(\"seller\")\n} else {\nfldTwo.SetString(\"buyer\")\n}"
+                    "name": "changeIntent"
                 }
             ]
         },

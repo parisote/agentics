@@ -14,17 +14,19 @@ type AgentInterface interface {
 }
 
 type Agent struct {
-	Name              string
-	Client            *ModelClient
-	Model             string
-	Instructions      string
-	Branchs           []string
-	Conditional       func(bag *Bag[any]) string
-	Tools             []ToolInterface
-	OutputGuardrails  []string
-	OutputType        string
-	PreStateFunction  func(bag *Bag[any]) error
-	PostStateFunction func(bag *Bag[any]) error
+	Name             string
+	Client           *ModelClient
+	Model            string
+	Instructions     string
+	Branchs          []string
+	Conditional      func(bag *Bag[any]) string
+	Tools            []ToolInterface
+	OutputGuardrails []string
+	OutputType       string
+	hooks            []struct {
+		kind Kind
+		fn   Func
+	}
 }
 
 type NextAgent struct {
@@ -99,15 +101,16 @@ func WithConditional(conditional func(bag *Bag[any]) string) AgentOption {
 	}
 }
 
-func WithPreStateFunction(stateFunction func(bag *Bag[any]) error) AgentOption {
+func WithHooks(kind Kind, name string) AgentOption {
 	return func(a *Agent) {
-		a.PreStateFunction = stateFunction
-	}
-}
-
-func WithPostStateFunction(stateFunction func(bag *Bag[any]) error) AgentOption {
-	return func(a *Agent) {
-		a.PostStateFunction = stateFunction
+		if fn, ok := getHook(name); ok {
+			a.hooks = append(a.hooks, struct {
+				kind Kind
+				fn   Func
+			}{kind, fn})
+		} else {
+			panic("hook no registrado: " + name)
+		}
 	}
 }
 
@@ -121,8 +124,10 @@ func (a *Agent) Run(ctx context.Context, bag *Bag[any], mem Memory) AgentRespons
 		}
 	}
 
-	if a.PreStateFunction != nil {
-		a.PreStateFunction(bag)
+	for _, h := range a.hooks {
+		if h.kind == PreHook {
+			h.fn(ctx, bag, mem)
+		}
 	}
 
 	tpl := fasttemplate.New(a.Instructions, "{{", "}}")
@@ -190,8 +195,10 @@ func (a *Agent) Run(ctx context.Context, bag *Bag[any], mem Memory) AgentRespons
 
 	mem.Add("assistant", response.GetContent())
 
-	if a.PostStateFunction != nil {
-		a.PostStateFunction(bag)
+	for _, h := range a.hooks {
+		if h.kind == PostHook {
+			h.fn(ctx, bag, mem)
+		}
 	}
 
 	return AgentResponse{
