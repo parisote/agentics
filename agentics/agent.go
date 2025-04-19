@@ -123,6 +123,21 @@ func (a *Agent) Run(ctx context.Context, state State) AgentResponse {
 		a.PreStateFunction(state)
 	}
 
+	for {
+		start := strings.Index(a.Instructions, "{")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(a.Instructions, "}")
+		if end == -1 {
+			break
+		}
+		placeholder := a.Instructions[start+1 : end]
+		fmt.Println("placeholder", placeholder)
+		field := state.GetAtt(placeholder)
+		a.Instructions = strings.ReplaceAll(a.Instructions, "{"+placeholder+"}", fmt.Sprintf("%v", field))
+	}
+
 	response, err := a.Client.provider.Execute(
 		ctx,
 		a.Instructions,

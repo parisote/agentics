@@ -29,10 +29,18 @@
                      "code": "stateMap := state.(map[string]interface{})\nraw := stateMap[\"intent\"].(reflect.Value)\nrawNoIntent := stateMap[\"noIntent\"].(reflect.Value)\nrawStep := stateMap[\"step\"].(reflect.Value)\nfld := raw.FieldByName(\"Intent\")\nfldTwo := rawNoIntent.FieldByName(\"NoIntent\")\nfldStep := rawStep.FieldByName(\"Step\")\nmsg := stateMap[\"messages\"].([]string)[len(stateMap[\"messages\"].([]string))-1]\nfld.SetString(strings.Split(msg, \" = \")[1])\nfldStep.SetInt(fldStep.Int() + 10)\nif strings.Split(msg, \" = \")[1] == \"buyer\" {\nfldTwo.SetString(\"seller\")\n} else {\nfldTwo.SetString(\"buyer\")\n}"
                 }
             ]
+        },
+        {
+            "name": "context_agent",
+            "type": "agent",
+            "prompt": "Your job is say hello to client and ask for a car. If {intent} is buyer, say hello to client and ask for a car. If {intent} is seller, say hello to client and ask for a car."
         }
     ],
     "edges": [
-        
+        {
+            "source": "detect_intent",
+            "target": "context_agent"
+        }
     ],
     "metadata": {}
 }

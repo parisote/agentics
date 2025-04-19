@@ -108,7 +108,7 @@ func main() {
 	}
 
 	state := &IntentState{
-		Messages: []string{"Hi, i interesing in sell my car"},
+		Messages: []string{"Hi, i interesing in buy a new car"},
 	}
 
 	for _, s := range jsonGraph.State {
