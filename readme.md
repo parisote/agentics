@@ -13,7 +13,7 @@ Agentics is a Go library for building and orchestrating AI agent systems. It pro
 
 ## Installation
 ```bash
-go get github.com/agentics/agentics
+go get github.com/parisote/agentics
 ```
 
 ## Quick Start
