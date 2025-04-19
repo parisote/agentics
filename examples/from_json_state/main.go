@@ -22,6 +22,7 @@ func main() {
 	agentics.RegisterHook("fetchAlgo", fetchAlgo)
 
 	graph := agentics.FromJson(file)
+	graph.Mem.Add("user", "Hi, i interesing in buy a new car")
 
 	response := graph.Run(context.Background())
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)

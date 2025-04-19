@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/goccy/go-json"
 	"github.com/parisote/agentics/agentics"
 	"github.com/subosito/gotenv"
 )
@@ -48,38 +47,13 @@ func main() {
 	}
 	defer file.Close()
 
-	var jsonGraph Graph
-
-	if err := json.NewDecoder(file).Decode(&jsonGraph); err != nil {
-		log.Fatalf("error al decodificar: %v", err)
-	}
-
-	bag := agentics.NewBag[any]()
-	mem := agentics.NewSliceMemory(10)
-	mem.Add("user", "Hello world")
-
-	graph := agentics.NewGraph(bag, mem)
-	for _, node := range jsonGraph.Nodes {
-		var a *agentics.Agent
-		if node.Type == "orchestrator" {
-			a = agentics.NewAgent(node.Name, node.Prompt, agentics.WithBranchs(node.Branches))
-		} else {
-			a = agentics.NewAgent(node.Name, node.Prompt)
-		}
-
-		graph.AddAgent(a)
-	}
-
-	graph.SetEntrypoint("orchestrator")
-
-	for _, edge := range jsonGraph.Edges {
-		graph.AddRelation(edge.Source, edge.Target)
-	}
+	graph := agentics.FromJson(file)
+	graph.Mem.Add("user", "Hello world")
 
 	response := graph.Run(context.Background())
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 
-	mem.Add("user", "Hola mundo")
+	graph.Mem.Add("user", "Hola mundo")
 	response = graph.Run(context.Background())
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 }

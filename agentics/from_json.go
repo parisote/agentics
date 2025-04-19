@@ -53,7 +53,6 @@ func FromJson(file *os.File) *Graph {
 	}
 
 	mem := NewSliceMemory(10)
-	mem.Add("user", "Hi, i interesing in buy a new car")
 	bag := NewBag[any]()
 
 	for _, s := range jsonGraph.State {
@@ -88,7 +87,7 @@ func FromJson(file *os.File) *Graph {
 		graph.AddAgent(a)
 	}
 
-	graph.SetEntrypoint("detect_intent")
+	graph.SetEntrypoint(jsonGraph.Entry)
 
 	for _, edge := range jsonGraph.Edges {
 		graph.AddRelation(edge.Source, edge.Target)
