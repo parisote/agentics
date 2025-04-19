@@ -1,184 +1,175 @@
 # Agentics
 
-Agentics is a Go library for building and orchestrating AI agent systems. It provides a flexible framework for creating agents that can interact with Large Language Models (LLMs) and execute custom tools.
+> Lightweight graph orchestrator for LLM‑powered agents in Go
+
+Agentics lets you compose **agents**, **tools**, **hooks** and **branching graphs** entirely in Go—no reflection or Python runtime required.
+
+---
 
 ## Features
 
-- Support for multiple LLM providers (OpenAI, Anthropic)
-- Agent orchestration through a graph-based system
-- Custom tool integration
-- State management
-- Branching and conditional flows
-- Pre and post-processing hooks for state manipulation
+* 🚀  **Tiny core** (< 800 LOC) with zero external runtime deps
+* 🧩  **Graph orchestration** – create conditional, multi‑agent pipelines
+* 👜  **`Bag`** (thread‑safe generics map) for shared variables
+* 💬  **`Memory`** (windowed message history) for LLM context
+* 🔌  **Hooks in plain Go** – register once, wire from JSON
+* 🛠   Tool calling & function‑calling support
+* 🗂   Pluggable providers (OpenAI, Anthropic …)
+
+---
 
 ## Installation
 ```bash
 go get github.com/parisote/agentics
 ```
+Requires Go 1.21+.
 
-## Quick Start
+---
 
-Here's a simple example of creating an agent:
-
+## Quick start
 ```go
 package main
 
 import (
     "context"
     "fmt"
+
     "github.com/parisote/agentics/agentics"
+    _ "myapp/hooks"            // registers fetchWeather()
 )
 
 func main() {
-    // Create a new agent
-    agent := agentics.NewAgent("agent", "You are a helpful assistant.")
+    bag := agentics.NewBag[any]()       // shared state
+    mem := agentics.NewSliceMemory(32)  // chat history (32 msgs)
 
-    // Create a graph
-    graph := agentics.Graph{}
-    graph.AddAgent(agent)
-    graph.SetEntrypoint(agent.Name)
+    // Agents
+    greet := agentics.NewAgent("greeter", "Hello {{name}}!")
+    weather := agentics.NewAgent(
+        "weather",
+        "Temperature in BA: {{weather_c}}°C.",
+        agentics.WithHook(agentics.Pre, "fetchWeather"),
+    )
 
-    // Run the agent with a message
-    response := graph.Run(context.Background(), &agentics.InputState{
-        Messages: []string{"Hello, how are you?"},
-    })
+    // Graph wiring
+    g := agentics.NewGraph(greet, weather)
+    g.AddRelation("greeter", "weather")
 
-    fmt.Printf("Response: %s\n", response.State.GetMessages()[len(response.State.GetMessages())-1])
+    bag.Set("name", "Tomas")
+
+    _ = g.Run(context.Background(), bag, mem)
+    fmt.Printf("Temp: %.1f\n", bag.Get("weather_c"))
 }
 ```
+
+---
 
 ## Examples
+* **`examples/simple_chat`** – REPL chat with a single agent
+* **`examples/tools`** – define and call custom Go tools
+* **`examples/branching`** – orchestrator that routes to English / Spanish agents
+* **`examples/from_json_state`** – load graph + hooks from a JSON descriptor
 
-The repository includes several examples demonstrating different features:
-
-### Simple Chat
-A console-based chat application:
+### Tools integration
 ```go
-agent := agentics.NewAgent("agent", "You are a helpful assistant.")
-graph := agentics.Graph{}
-graph.AddAgent(agent)
-graph.SetEntrypoint(agent.Name)
-```
-
-### Tools Integration
-Example of using custom tools with agents:
-```go
-toolMultiply := agentics.NewTool("multiply",
-    "Use this tool to multiply two numbers.",
-    []agentics.DescriptionParams{
-        {Name: "a", Type: "integer"},
-        {Name: "b", Type: "integer"},
+multiply := agentics.NewTool(
+    "multiply",
+    "Multiply two integers.",
+    []agentics.DescriptionParams{{Name: "a", Type: "int"}, {Name: "b", Type: "int"}},
+    func(_ context.Context, bag *agentics.Bag[any], p *agentics.ToolParams) any {
+        return p.Params["a"].(int) * p.Params["b"].(int)
     },
-    func(ctx context.Context, state agentics.State, input *agentics.ToolParams) interface{} {
-        return input.Params["a"].(int) * input.Params["b"].(int)
-    })
-
-agent := agentics.NewAgent("agent", "You are a helpful assistant.",
-    agentics.WithTools([]agentics.ToolInterface{toolMultiply}))
+)
+agent := agentics.NewAgent("calc", "Use multiply when needed.", agentics.WithTools([]agentics.ToolInterface{multiply}))
 ```
 
-### Branching Logic
-Example of conditional agent routing:
+### Branching logic
 ```go
-orchestrator := agentics.NewAgent("orchestrator",
-    "Your job is to decide which agent to use based on the task.",
-    agentics.WithBranchs([]string{"english_agent", "spanish_agent"}))
+orch := agentics.NewAgent("orchestrator",
+    "Decide which agent should answer.",
+    agentics.WithBranches([]string{"en", "es"}),
+)
 ```
 
-### Advanced Usage
-Multi-agent system with custom state management:
-```go
-agent1 := agentics.NewAgent("agent1", "Task in English")
-agent2 := agentics.NewAgent("agent2", "Translate to Spanish")
-agent3 := agentics.NewAgent("agent3", "Translate to Deutsch")
+---
 
-graph := agentics.Graph{}
-graph.AddAgent(agent1)
-graph.AddAgent(agent2)
-graph.AddAgent(agent3)
-graph.SetEntrypoint(agent1.Name)
-graph.AddRelation("agent1", "agent2")
-graph.AddRelation("agent2", "agent3")
-```
-
-## JSON Configuration
-
-Now you can define your agent system using JSON configuration files. Here's an example:
-
-```json
+## JSON configuration
+You can ship your pipeline as JSON and wire Go hooks by **name**:
+```jsonc
 {
-    "entry": "detect_intent",
-    "state": [
-        {
-            "name": "intent",
-            "type": "string"
-        },
-        {
-            "name": "noIntent",
-            "type": "string"
-        },
-        {
-            "name": "step",
-            "type": "int"
-        }
-    ],
-    "nodes":[
-        {
-            "name": "detect_intent",
-            "type": "agent",
-            "prompt": "Your job is detect intent from client between seller or buyer. And answer with intent, for example: intent = buyer",
-            "functions": [
-                {
-                    "type": "pre",
-                     "code": "stateMap := state.(map[string]interface{})\nrawStep := stateMap[\"step\"].(reflect.Value)\nfldStep := rawStep.FieldByName(\"Step\")\nfldStep.SetInt(fldStep.Int() + 20)"
-                },
-                {
-                    "type": "post",
-                     "code": "stateMap := state.(map[string]interface{})\nraw := stateMap[\"intent\"].(reflect.Value)\nrawNoIntent := stateMap[\"noIntent\"].(reflect.Value)\nrawStep := stateMap[\"step\"].(reflect.Value)\nfld := raw.FieldByName(\"Intent\")\nfldTwo := rawNoIntent.FieldByName(\"NoIntent\")\nfldStep := rawStep.FieldByName(\"Step\")\nmsg := stateMap[\"messages\"].([]string)[len(stateMap[\"messages\"].([]string))-1]\nfld.SetString(strings.Split(msg, \" = \")[1])\nfldStep.SetInt(fldStep.Int() + 10)\nif strings.Split(msg, \" = \")[1] == \"buyer\" {\nfldTwo.SetString(\"seller\")\n} else {\nfldTwo.SetString(\"buyer\")\n}"
-                }
-            ]
-        },
-        {
-            "name": "context_agent",
-            "type": "agent",
-            "prompt": "Your job is say hello to client and ask for a car. If {intent} is buyer, say hello to client and ask for a car. If {intent} is seller, say hello to client and ask for a car."
-        }
-    ],
-    "edges": [
-        {
-            "source": "detect_intent",
-            "target": "context_agent"
-        }
-    ],
-    "metadata": {}
+  "entry": "detect_intent",
+  "nodes": [
+    {
+      "name": "detect_intent",
+      "prompt": "Detect buyer/seller intent and set bag.intent",
+      "hooks": [{"type": "post", "name": "detectIntent"}]
+    },
+    {
+      "name": "context_agent",
+      "prompt": "Say hello in the right tone (bag.intent)."
+    }
+  ],
+  "edges": [
+    {"source": "detect_intent", "target": "context_agent"}
+  ]
+}
+```
+The loader in `examples/from_json_state` turns this into a live `Graph`.
+
+---
+
+## Writing hooks
+```go
+package hooks
+
+import (
+    "context"
+    "encoding/json"
+    "net/http"
+
+    "github.com/parisote/agentics/agentics"
+)
+
+type weather struct{ Current struct{ Temp float64 `json:"temp_c"` } }
+
+func init() { agentics.RegisterHook("fetchWeather", fetchWeather) }
+
+func fetchWeather(ctx context.Context, c *agentics.Context) error {
+    r, err := c.HTTP.Get("https://api.weatherapi.com/v1/current.json?q=Buenos+Aires")
+    if err != nil { return err }
+    defer r.Body.Close()
+
+    var w weather
+    if err := json.NewDecoder(r.Body).Decode(&w); err != nil { return err }
+    c.Bag.Set("weather_c", w.Current.Temp)
+    return nil
 }
 ```
 
-## Environment Setup
+---
 
-Create a `.env` file in your project root:
+## API reference (core)
+### Bag
+| Method | Description |
+|--------|-------------|
+| `NewBag[T]()` | Create a new bag.
+| `Get(key)` / `Set(key,val)` | Thread‑safe access.
+| `All()` | Shallow clone of all entries.
 
-```env
-OPENAI_API_KEY=your_openai_key
-ANTHROPIC_API_KEY=your_anthropic_key
-```
+### Memory
+| Method | Description |
+|--------|-------------|
+| `NewSliceMemory(max int)` | Create windowed memory.
+| `Add(role, content)` | Append message (auto‑prune).
+| `All()` | Return slice of messages.
 
-## API Reference
+### Graph
+| Method | Description |
+|--------|-------------|
+| `NewGraph(nodes...)` | Instantiate graph.
+| `AddRelation(a,b)` | Connect nodes.
+| `Run(ctx, bag, mem)` | Execute flow.
 
-### Agent Options
-- `WithClient(client ModelClient)`: Set custom model client
-- `WithTools(tools []ToolInterface)`: Add tools to agent
-- `WithBranchs(branchs []string)`: Configure branching logic
-- `WithModel(model string)`: Specify LLM model
-- `WithOutputGuardrails(guardrails []string)`: Add output validation
-- `WithOutputType(outputType string)`: Set expected output format
-
-### Graph Operations
-- `AddAgent(agent *Agent)`: Add an agent to the graph
-- `AddRelation(from, to string)`: Create agent relationships
-- `SetEntrypoint(agent string)`: Set the starting agent
-- `Run(ctx context.Context, state State)`: Execute the agent graph
+---
 
 ## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT © 2025 Tomas Climente
