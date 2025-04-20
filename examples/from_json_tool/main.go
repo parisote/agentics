@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/parisote/agentics/agentics"
+	_ "github.com/parisote/agentics/examples/from_json_tool/tools"
 )
 
 func main() {
@@ -16,9 +17,6 @@ func main() {
 		log.Fatalf("no pude abrir el archivo: %v", err)
 	}
 	defer file.Close()
-
-	agentics.RegisterTool("divide", divideTool)
-	agentics.RegisterTool("multiply", multiplyTool)
 
 	graph := agentics.FromJson(file)
 	graph.Mem.Add("user", "Cuanto es 30 / 3?")
@@ -31,19 +29,4 @@ func main() {
 	response = graph.Run(context.Background())
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 	fmt.Println("result = ", response.Bag.Get("result"))
-}
-
-func divideTool(ctx context.Context, bag *agentics.Bag[any], input *agentics.ToolParams) interface{} {
-	if input.Params["b"].(int) == 0 {
-		return "Error: Division by zero"
-	}
-	result := input.Params["a"].(int) / input.Params["b"].(int)
-	bag.Set("result", result)
-	return result
-}
-
-func multiplyTool(ctx context.Context, bag *agentics.Bag[any], input *agentics.ToolParams) interface{} {
-	result := input.Params["a"].(int) * input.Params["b"].(int)
-	bag.Set("result", result)
-	return result
 }
