@@ -154,6 +154,16 @@ func fetchWeather(ctx context.Context, c *agentics.Context) error {
 ---
 
 ## API reference (core)
+### Hooks
+| Method | Description |
+|--------|-------------|
+| `RegisterHook(name string, fn func(ctx context.Context, c *Context) error)` | Register a new hook.
+
+### Tool
+| Method | Description |
+|--------|-------------|
+| `func RegisterTool(name string, fn func(ctx context.Context, bag *Bag[any], input *ToolParams) interface{})` | Register a new tool.
+
 ### Bag
 | Method | Description |
 |--------|-------------|
