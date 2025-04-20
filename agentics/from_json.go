@@ -28,6 +28,13 @@ type Node struct {
 	Prompt    string     `json:"prompt"`
 	Branches  []string   `json:"branches,omitempty"` // solo existe en el orquestador
 	Functions []Function `json:"functions,omitempty"`
+	Tools     []JsonTool `json:"tools,omitempty"`
+}
+
+type JsonTool struct {
+	Name        string              `json:"name"`
+	Description string              `json:"description"`
+	Parameters  []DescriptionParams `json:"parameters"`
 }
 
 type Function struct {
@@ -77,6 +84,25 @@ func FromJson(file *os.File) *Graph {
 			case "post":
 				opts = append(opts, WithHooks(PostHook, fn.Name))
 			}
+		}
+
+		if len(node.Tools) > 0 {
+			tools := make([]ToolInterface, 0)
+			for _, tool := range node.Tools {
+				funcTool, ok := getTool(tool.Name)
+				if !ok {
+					fmt.Println("error tools")
+					return nil
+				}
+				t := NewTool(
+					tool.Name,
+					tool.Description,
+					tool.Parameters,
+					funcTool,
+				)
+				tools = append(tools, t)
+			}
+			opts = append(opts, WithTools(tools))
 		}
 
 		if node.Type == "orchestrator" {

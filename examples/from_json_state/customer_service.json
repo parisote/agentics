@@ -28,7 +28,8 @@
                     "type": "post",
                     "name": "changeIntent"
                 }
-            ]
+            ],
+            "tools": []
         },
         {
             "name": "context_agent",

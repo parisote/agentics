@@ -1,0 +1,53 @@
+{
+    "entry": "main_agent",
+    "state": [
+        {
+            "name": "result",
+            "type": "int"
+        }
+    ],
+    "nodes":[
+        {
+            "name": "main_agent",
+            "type": "agent",
+            "prompt": "You are a helpful assistant.",
+            "functions": [
+            ],
+            "tools": [
+                {
+                    "name": "divide",
+                    "description": "Use this tool to divide two numbers. The input is a map with two keys, 'a' and 'b', which are the integers to divide.",
+                    "parameters": [
+                        {
+                            "name": "a",
+                            "type": "integer"
+                        },
+                        {
+                            "name": "b",
+                            "type": "integer"
+                        }
+                    ],
+                    "function": "divideTool"
+                },
+                {
+                    "name": "multiply",
+                    "description": "Use this tool to multiply two numbers. The input is a map with two keys, 'a' and 'b', which are the integers to multiply.",
+                    "parameters": [
+                        {
+                            "name": "a",
+                            "type": "integer"
+                        },
+                        {
+                            "name": "b",
+                            "type": "integer"
+                        }
+                    ],
+                    "function": "multiplyTool"
+                }
+            ]
+        }
+    ],
+    "edges": [
+    ],
+    "metadata": {}
+}

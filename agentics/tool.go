@@ -5,6 +5,8 @@ import (
 	"fmt"
 )
 
+type ToolFunc func(ctx context.Context, bag *Bag[any], input *ToolParams) interface{}
+
 type ToolInterface interface {
 	GetName() string
 	GetDescription() string
@@ -24,12 +26,23 @@ type Tool struct {
 	Name        string
 	Description string
 	Parameters  []DescriptionParams
-	Function    func(ctx context.Context, bag *Bag[any], input *ToolParams) interface{}
+	Function    ToolFunc
 }
 
 type DescriptionParams struct {
 	Name string
 	Type string
+}
+
+var toolRegistry = make(map[string]ToolFunc)
+
+func RegisterTool(name string, fn ToolFunc) {
+	toolRegistry[name] = fn
+}
+
+func getTool(name string) (ToolFunc, bool) {
+	fn, ok := toolRegistry[name]
+	return fn, ok
 }
 
 func NewTool(name string, description string, parameters []DescriptionParams, function func(ctx context.Context, bag *Bag[any], input *ToolParams) interface{}) ToolInterface {
