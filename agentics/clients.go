@@ -2,7 +2,8 @@ package agentics
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -30,11 +31,13 @@ type ModelResponse struct {
 	IsToolCall bool
 	ToolCalls  []ToolCall
 	Content    string
+	Params     []byte //bytes
 }
 
 type ToolCall struct {
-	Name      string
-	Arguments string
+	Name       string
+	Arguments  string
+	ToolCallID string
 }
 
 func (r *ModelResponse) GetContent() string {
@@ -54,22 +57,26 @@ func NewOpenAIProvider() *OpenAIProvider {
 }
 
 func (p *OpenAIProvider) Execute(ctx context.Context, prompt string, messages []Message, tools []ToolInterface) (*ModelResponse, error) {
+	openAIMessages := p.toOpenAIMessages(messages)
+	newMessages := []openai.ChatCompletionMessageParamUnion{}
+	newMessages = append(newMessages, openai.SystemMessage(prompt))
+	newMessages = append(newMessages, openAIMessages...)
 	chatCompletion, err := p.Client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-		Messages: []openai.ChatCompletionMessageParamUnion{
-			openai.SystemMessage(prompt),
-			openai.UserMessage(messages[len(messages)-1].Content),
-		},
-		Model: openai.ChatModelGPT4o,
-		Tools: p.getOpenAITools(tools),
+		Messages: newMessages,
+		Model:    openai.ChatModelGPT4o,
+		Tools:    p.getOpenAITools(tools),
 	})
 	if err != nil {
-		return nil, errors.New("error executing openai model")
+		return nil, err
 	}
+
+	params, _ := chatCompletion.Choices[0].Message.ToParam().MarshalJSON()
 
 	return &ModelResponse{
 		IsToolCall: chatCompletion.Choices[0].FinishReason == "tool_calls",
 		ToolCalls:  p.getToolCalls(chatCompletion.Choices[0].Message.ToolCalls),
 		Content:    chatCompletion.Choices[0].Message.Content,
+		Params:     params,
 	}, nil
 }
 
@@ -78,8 +85,9 @@ func (p *OpenAIProvider) getToolCalls(toolCalls []openai.ChatCompletionMessageTo
 
 	for _, toolCall := range toolCalls {
 		result = append(result, ToolCall{
-			Name:      toolCall.Function.Name,
-			Arguments: toolCall.Function.Arguments,
+			Name:       toolCall.Function.Name,
+			Arguments:  toolCall.Function.Arguments,
+			ToolCallID: toolCall.ID,
 		})
 	}
 
@@ -107,6 +115,36 @@ func (p *OpenAIProvider) getOpenAITools(tools []ToolInterface) []openai.ChatComp
 				},
 			},
 		})
+	}
+
+	return result
+}
+
+func (p *OpenAIProvider) toOpenAIMessages(m []Message) []openai.ChatCompletionMessageParamUnion {
+	result := []openai.ChatCompletionMessageParamUnion{}
+
+	for _, message := range m {
+		switch message.Role {
+		case "tool":
+			result = append(result, openai.ToolMessage(message.Content, message.ToolCallID))
+		case "user":
+			result = append(result, openai.UserMessage(message.Content))
+		case "assistant":
+			result = append(result, openai.AssistantMessage(message.Content))
+		case "assistant_tool":
+			var obj openai.ChatCompletionMessageParamUnion
+			fmt.Println("mensaje1 ", message.Content)
+			if err := json.Unmarshal([]byte(message.Content), &obj); err != nil {
+				fmt.Println("ERROR")
+			}
+			if obj.OfTool == nil {
+				panic("")
+			}
+			fmt.Println("mensaje ", obj)
+			result = append(result, obj)
+		case "system":
+			result = append(result, openai.SystemMessage(message.Content))
+		}
 	}
 
 	return result

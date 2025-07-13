@@ -194,9 +194,29 @@ func (a *Agent) Run(ctx context.Context, bag *Bag[any], mem Memory) AgentRespons
 						}
 					}
 
+					mem.Add("assistant_tool", string(response.Params))
+
 					output := tool.Run(ctx, bag, &ToolParams{Params: params})
+
+					mem.Add("tool", output.Output, toolCall.ToolCallID)
+
+					newResponse, err := a.Client.provider.Execute(
+						ctx,
+						prompt,
+						mem.All(),
+						a.Tools,
+					)
+					if err != nil {
+						fmt.Println("Error executing agent2:", err)
+						return AgentResponse{
+							Content:   "",
+							Error:     err,
+							NextAgent: "",
+						}
+					}
+
 					return AgentResponse{
-						Content:   output.Output,
+						Content:   newResponse.GetContent(),
 						Error:     nil,
 						NextAgent: "",
 					}
