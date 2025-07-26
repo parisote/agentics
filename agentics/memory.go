@@ -8,6 +8,7 @@ type Message struct {
 	Role       string // "system", "user", "assistant", "tool"
 	Content    string
 	ToolCallID string
+	ToolCalls  []ToolCall // For assistant messages with tool calls
 }
 
 type Memory interface {
@@ -37,11 +38,31 @@ func (m *SliceMemory) Add(role string, content string, toolCallID ...string) {
 	defer m.mu.Unlock()
 
 	if len(toolCallID) > 0 {
-		m.data = append(m.data, Message{Role: role, Content: content, ToolCallID: toolCallID[0]})
+		m.data = append(m.data, Message{
+			Role:       role,
+			Content:    content,
+			ToolCallID: toolCallID[0],
+		})
 	} else {
-		m.data = append(m.data, Message{Role: role, Content: content})
+		m.data = append(m.data, Message{
+			Role:    role,
+			Content: content,
+		})
 	}
 
+	// Trim old messages if needed
+	if len(m.data) > m.max {
+		m.data = m.data[len(m.data)-m.max:]
+	}
+}
+
+func (m *SliceMemory) AddMessage(message Message) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.data = append(m.data, message)
+
+	// Trim old messages if needed
 	if len(m.data) > m.max {
 		m.data = m.data[len(m.data)-m.max:]
 	}
@@ -84,7 +105,7 @@ func (m *SliceMemory) Len() int {
 	return len(m.data)
 }
 
-func (m *SliceMemory) AddByte(role string, content []byte) {
+func (m *SliceMemory) AddBytes(role string, content []byte) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

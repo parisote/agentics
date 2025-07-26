@@ -61,7 +61,7 @@ func main() {
 	response := graph.Run(ctx)
 	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 
-	//mem.Add("user", "how many is 30 / 10?")
-	//response = graph.Run(ctx)
-	//fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
+	mem.Add("user", "how many is 30 / 10?")
+	response = graph.Run(ctx)
+	fmt.Printf("Response: %s\n", response.Mem.LastN(1)[0].Content)
 }

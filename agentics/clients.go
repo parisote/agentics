@@ -2,8 +2,6 @@ package agentics
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -25,6 +23,9 @@ type ModelClient struct {
 
 type ModelProvider interface {
 	Execute(ctx context.Context, prompt string, messages []Message, tools []ToolInterface) (*ModelResponse, error)
+	ExecuteWithFollowUp(ctx context.Context, prompt string, messages []Message, tools []ToolInterface, toolResult string) (*ModelResponse, error)
+	GetModel() string
+	SetModel(model string)
 }
 
 type ModelResponse struct {
@@ -46,6 +47,7 @@ func (r *ModelResponse) GetContent() string {
 
 type OpenAIProvider struct {
 	Client openai.Client
+	Model  string
 }
 
 func NewOpenAIProvider() *OpenAIProvider {
@@ -53,7 +55,42 @@ func NewOpenAIProvider() *OpenAIProvider {
 		Client: openai.NewClient(
 			openai_option.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
 		),
+		Model: "gpt-4o", // valor por defecto
 	}
+}
+
+func (p *OpenAIProvider) GetModel() string {
+	return p.Model
+}
+
+func (p *OpenAIProvider) SetModel(model string) {
+	p.Model = model
+}
+
+func (p *OpenAIProvider) ExecuteWithFollowUp(ctx context.Context, prompt string, messages []Message, tools []ToolInterface, toolResult string) (*ModelResponse, error) {
+	openAIMessages := p.toOpenAIMessages(messages)
+	newMessages := []openai.ChatCompletionMessageParamUnion{}
+	newMessages = append(newMessages, openai.SystemMessage(prompt))
+	newMessages = append(newMessages, openAIMessages...)
+	newMessages = append(newMessages, openai.UserMessage(toolResult))
+
+	chatCompletion, err := p.Client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
+		Messages: newMessages,
+		Model:    openai.ChatModel(p.Model),
+		Tools:    p.getOpenAITools(tools),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	params, _ := chatCompletion.Choices[0].Message.ToParam().MarshalJSON()
+
+	return &ModelResponse{
+		IsToolCall: chatCompletion.Choices[0].FinishReason == "tool_calls",
+		ToolCalls:  p.getToolCalls(chatCompletion.Choices[0].Message.ToolCalls),
+		Content:    chatCompletion.Choices[0].Message.Content,
+		Params:     params,
+	}, nil
 }
 
 func (p *OpenAIProvider) Execute(ctx context.Context, prompt string, messages []Message, tools []ToolInterface) (*ModelResponse, error) {
@@ -63,7 +100,7 @@ func (p *OpenAIProvider) Execute(ctx context.Context, prompt string, messages []
 	newMessages = append(newMessages, openAIMessages...)
 	chatCompletion, err := p.Client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
 		Messages: newMessages,
-		Model:    openai.ChatModelGPT4o,
+		Model:    openai.ChatModel(p.Model),
 		Tools:    p.getOpenAITools(tools),
 	})
 	if err != nil {
@@ -123,25 +160,30 @@ func (p *OpenAIProvider) getOpenAITools(tools []ToolInterface) []openai.ChatComp
 func (p *OpenAIProvider) toOpenAIMessages(m []Message) []openai.ChatCompletionMessageParamUnion {
 	result := []openai.ChatCompletionMessageParamUnion{}
 
-	for _, message := range m {
+	for i, message := range m {
 		switch message.Role {
 		case "tool":
+			// Check if the previous message is an assistant message
+			// If not, add an empty assistant message for tool call context
+			if i == 0 || m[i-1].Role != "assistant" {
+				result = append(result, openai.AssistantMessage(""))
+			}
 			result = append(result, openai.ToolMessage(message.Content, message.ToolCallID))
 		case "user":
 			result = append(result, openai.UserMessage(message.Content))
 		case "assistant":
-			result = append(result, openai.AssistantMessage(message.Content))
+			if len(message.ToolCalls) > 0 {
+				// Assistant message with tool calls
+				// For simplicity, we'll create an assistant message with empty content
+				// The actual tool call information will be handled by the API
+				result = append(result, openai.AssistantMessage(message.Content))
+			} else {
+				// Regular assistant message
+				result = append(result, openai.AssistantMessage(message.Content))
+			}
 		case "assistant_tool":
-			var obj openai.ChatCompletionMessageParamUnion
-			fmt.Println("mensaje1 ", message.Content)
-			if err := json.Unmarshal([]byte(message.Content), &obj); err != nil {
-				fmt.Println("ERROR")
-			}
-			if obj.OfTool == nil {
-				panic("")
-			}
-			fmt.Println("mensaje ", obj)
-			result = append(result, obj)
+			// Skip assistant_tool messages for now - they will be handled differently
+			continue
 		case "system":
 			result = append(result, openai.SystemMessage(message.Content))
 		}
@@ -152,6 +194,7 @@ func (p *OpenAIProvider) toOpenAIMessages(m []Message) []openai.ChatCompletionMe
 
 type AnthropicProvider struct {
 	Client *anthropic.Client
+	Model  string
 }
 
 func NewAnthropicProvider() *AnthropicProvider {
@@ -159,10 +202,25 @@ func NewAnthropicProvider() *AnthropicProvider {
 		Client: anthropic.NewClient(
 			anthropics_option.WithAPIKey(os.Getenv("ANTHROPIC_API_KEY")),
 		),
+		Model: "claude-3-sonnet-20240229", // valor por defecto
 	}
 }
 
+func (p *AnthropicProvider) GetModel() string {
+	return p.Model
+}
+
+func (p *AnthropicProvider) SetModel(model string) {
+	p.Model = model
+}
+
 func (p *AnthropicProvider) Execute(ctx context.Context, prompt string, messages []Message, tools []ToolInterface) (*ModelResponse, error) {
+	// TODO: Implementar para Anthropic
+	return nil, nil
+}
+
+func (p *AnthropicProvider) ExecuteWithFollowUp(ctx context.Context, prompt string, messages []Message, tools []ToolInterface, toolResult string) (*ModelResponse, error) {
+	// TODO: Implementar para Anthropic
 	return nil, nil
 }
 
@@ -179,4 +237,10 @@ func NewModelClient(modelType ModelType) *ModelClient {
 	return &ModelClient{
 		provider: provider,
 	}
+}
+
+func NewModelClientWithModel(modelType ModelType, model string) *ModelClient {
+	client := NewModelClient(modelType)
+	client.provider.SetModel(model)
+	return client
 }
