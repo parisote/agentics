@@ -50,7 +50,6 @@ func (m *SliceMemory) Add(role string, content string, toolCallID ...string) {
 		})
 	}
 
-	// Trim old messages if needed
 	if len(m.data) > m.max {
 		m.data = m.data[len(m.data)-m.max:]
 	}
@@ -62,7 +61,6 @@ func (m *SliceMemory) AddMessage(message Message) {
 
 	m.data = append(m.data, message)
 
-	// Trim old messages if needed
 	if len(m.data) > m.max {
 		m.data = m.data[len(m.data)-m.max:]
 	}
