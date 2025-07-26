@@ -68,17 +68,16 @@ func (t *Tool) GetParameters() []DescriptionParams {
 
 func (t *Tool) Run(ctx context.Context, bag *Bag[any], input *ToolParams) *ToolResponse {
 	output := t.Function(ctx, bag, input)
+	var outputString string
 
 	switch output := output.(type) {
 	case string:
-		return &ToolResponse{
-			Output: output,
-		}
+		outputString = output
 	case int:
-		return &ToolResponse{
-			Output: fmt.Sprintf("%d", output),
-		}
+		outputString = fmt.Sprintf("%d", output)
 	}
 
-	return nil
+	return &ToolResponse{
+		Output: outputString,
+	}
 }

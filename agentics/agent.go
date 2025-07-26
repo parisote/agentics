@@ -46,7 +46,7 @@ func NewAgent(name string, instructions string, options ...AgentOption) *Agent {
 		Name:         name,
 		Instructions: instructions,
 		Client:       NewModelClient(OpenAI),
-		Model:        "gpt-4o-mini",
+		Model:        "",
 	}
 
 	for _, option := range options {
@@ -59,6 +59,9 @@ func NewAgent(name string, instructions string, options ...AgentOption) *Agent {
 func WithClient(client ModelClient) AgentOption {
 	return func(a *Agent) {
 		a.Client = &client
+		if a.Model != "" {
+			a.Client.provider.SetModel(a.Model)
+		}
 	}
 }
 
@@ -93,6 +96,9 @@ func WithOutputType(outputType string) AgentOption {
 func WithModel(model string) AgentOption {
 	return func(a *Agent) {
 		a.Model = model
+		if a.Client != nil {
+			a.Client.provider.SetModel(model)
+		}
 	}
 }
 
@@ -195,8 +201,28 @@ func (a *Agent) Run(ctx context.Context, bag *Bag[any], mem Memory) AgentRespons
 					}
 
 					output := tool.Run(ctx, bag, &ToolParams{Params: params})
+
+					toolResultMessage := fmt.Sprintf("I used the %s tool with the arguments %s and got this result: %s. Please provide a final response based on this information.",
+						toolCall.Name, toolCall.Arguments, output.Output)
+
+					followUpResponse, err := a.Client.provider.ExecuteWithFollowUp(
+						ctx,
+						prompt,
+						mem.All(),
+						a.Tools,
+						toolResultMessage,
+					)
+					if err != nil {
+						fmt.Println("Error executing tool follow-up:", err)
+						return AgentResponse{
+							Content:   "",
+							Error:     err,
+							NextAgent: "",
+						}
+					}
+
 					return AgentResponse{
-						Content:   output.Output,
+						Content:   followUpResponse.GetContent(),
 						Error:     nil,
 						NextAgent: "",
 					}
