@@ -55,7 +55,7 @@ func NewOpenAIProvider() *OpenAIProvider {
 		Client: openai.NewClient(
 			openai_option.WithAPIKey(os.Getenv("OPENAI_API_KEY")),
 		),
-		Model: "gpt-4o", // valor por defecto
+		Model: "gpt-4o",
 	}
 }
 
@@ -163,8 +163,6 @@ func (p *OpenAIProvider) toOpenAIMessages(m []Message) []openai.ChatCompletionMe
 	for i, message := range m {
 		switch message.Role {
 		case "tool":
-			// Check if the previous message is an assistant message
-			// If not, add an empty assistant message for tool call context
 			if i == 0 || m[i-1].Role != "assistant" {
 				result = append(result, openai.AssistantMessage(""))
 			}
@@ -173,16 +171,11 @@ func (p *OpenAIProvider) toOpenAIMessages(m []Message) []openai.ChatCompletionMe
 			result = append(result, openai.UserMessage(message.Content))
 		case "assistant":
 			if len(message.ToolCalls) > 0 {
-				// Assistant message with tool calls
-				// For simplicity, we'll create an assistant message with empty content
-				// The actual tool call information will be handled by the API
 				result = append(result, openai.AssistantMessage(message.Content))
 			} else {
-				// Regular assistant message
 				result = append(result, openai.AssistantMessage(message.Content))
 			}
 		case "assistant_tool":
-			// Skip assistant_tool messages for now - they will be handled differently
 			continue
 		case "system":
 			result = append(result, openai.SystemMessage(message.Content))
@@ -202,7 +195,7 @@ func NewAnthropicProvider() *AnthropicProvider {
 		Client: anthropic.NewClient(
 			anthropics_option.WithAPIKey(os.Getenv("ANTHROPIC_API_KEY")),
 		),
-		Model: "claude-3-sonnet-20240229", // valor por defecto
+		Model: "claude-3-sonnet-20240229",
 	}
 }
 

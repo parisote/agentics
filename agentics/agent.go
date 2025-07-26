@@ -46,7 +46,7 @@ func NewAgent(name string, instructions string, options ...AgentOption) *Agent {
 		Name:         name,
 		Instructions: instructions,
 		Client:       NewModelClient(OpenAI),
-		Model:        "", // Se usará el modelo por defecto del proveedor
+		Model:        "",
 	}
 
 	for _, option := range options {
@@ -59,7 +59,6 @@ func NewAgent(name string, instructions string, options ...AgentOption) *Agent {
 func WithClient(client ModelClient) AgentOption {
 	return func(a *Agent) {
 		a.Client = &client
-		// Si ya tenemos un modelo configurado, aplicarlo al nuevo cliente
 		if a.Model != "" {
 			a.Client.provider.SetModel(a.Model)
 		}
@@ -203,11 +202,9 @@ func (a *Agent) Run(ctx context.Context, bag *Bag[any], mem Memory) AgentRespons
 
 					output := tool.Run(ctx, bag, &ToolParams{Params: params})
 
-					// Crear mensaje con el resultado de la herramienta
 					toolResultMessage := fmt.Sprintf("I used the %s tool with the arguments %s and got this result: %s. Please provide a final response based on this information.",
 						toolCall.Name, toolCall.Arguments, output.Output)
 
-					// Usar el método ExecuteWithFollowUp del proveedor
 					followUpResponse, err := a.Client.provider.ExecuteWithFollowUp(
 						ctx,
 						prompt,
